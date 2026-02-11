@@ -10,13 +10,16 @@ export default function ListaRutasScreen() {
     const [rutas, setRutas] = useState<Ruta[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const fetchRutas = async () => {
         try {
+            setError(null);
             const data = await rutaService.getMisRutas();
             setRutas(data);
         } catch (error) {
             console.error('Error fetching routes', error);
+            setError('No se pudieron cargar las rutas. Verifica tu conexión.');
         } finally {
             setLoading(false);
             setRefreshing(false);
@@ -41,6 +44,11 @@ export default function ListaRutasScreen() {
             {loading ? (
                 <View style={styles.loader}>
                     <ActivityIndicator size="large" color="#E67E50" />
+                </View>
+            ) : error ? (
+                <View style={styles.centerContent}>
+                    <Text style={styles.errorText}>{error}</Text>
+                    <Text style={styles.retryText} onPress={fetchRutas}>Intentar de nuevo</Text>
                 </View>
             ) : (
                 <FlatList
@@ -93,5 +101,23 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         marginTop: 40,
         fontSize: 16,
+    },
+    centerContent: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+    },
+    errorText: {
+        color: '#FF4444',
+        textAlign: 'center',
+        fontSize: 16,
+        marginBottom: 16,
+    },
+    retryText: {
+        color: '#E67E50',
+        fontSize: 16,
+        fontWeight: 'bold',
+        textDecorationLine: 'underline',
     },
 });

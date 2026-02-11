@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as SecureStore from 'expo-secure-store';
 import { jwtDecode } from 'jwt-decode';
 import api from './api';
+import { storageAdapter } from './storageAdapter';
 
 export interface User {
     id: number;
@@ -52,7 +52,7 @@ export const authService = {
                 imagenUrl: getClaim(decoded, ['imagen_url']) || '',
             };
 
-            await SecureStore.setItemAsync('userToken', tokenDeAcceso);
+            await storageAdapter.setItem('userToken', tokenDeAcceso);
             await AsyncStorage.setItem('userData', JSON.stringify(userData));
 
             return { user: userData, token: tokenDeAcceso };
@@ -66,14 +66,14 @@ export const authService = {
         try {
             await api.post('/Auth/cerrar-sesion', {}).catch((e) => console.log('Backend logout failed or ignored', e));
         } finally {
-            await SecureStore.deleteItemAsync('userToken');
+            await storageAdapter.deleteItem('userToken');
             await AsyncStorage.removeItem('userData');
         }
     },
 
     async getUserFromStorage(): Promise<{ user: User | null; token: string | null }> {
         try {
-            const token = await SecureStore.getItemAsync('userToken');
+            const token = await storageAdapter.getItem('userToken');
             const userStr = await AsyncStorage.getItem('userData');
             if (token && userStr) {
                 return { user: JSON.parse(userStr), token };

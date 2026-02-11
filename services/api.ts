@@ -1,9 +1,30 @@
 import axios from 'axios';
-import * as SecureStore from 'expo-secure-store';
+import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+import { storageAdapter } from './storageAdapter';
 
-// Use 10.0.2.2 for Android Emulator to access localhost of the host machine.
-// For physical devices or iOS simulator, this should be your machine's LAN IP or a public URL.
-export const API_URL = 'http://10.0.2.2:5079/api';
+// Dynamic API URL determination
+const getApiUrl = () => {
+    if (Platform.OS === 'web') return 'http://localhost:5079/api';
+
+    // For Android Emulator
+    // return 'http://10.0.2.2:5079/api';
+
+    // dynamic IP for physical devices (development)
+    const debuggerHost = Constants.expoConfig?.hostUri;
+    const localhost = debuggerHost?.split(':')[0];
+
+    if (localhost) {
+        return `http://${localhost}:5079/api`;
+    }
+
+    // Fallback for Android Emulator if constants fail or not available
+    return 'http://10.0.2.2:5079/api';
+};
+
+export const API_URL = getApiUrl();
+
+console.log('API_URL configured as:', API_URL);
 
 const api = axios.create({
     baseURL: API_URL,
@@ -16,7 +37,7 @@ const api = axios.create({
 api.interceptors.request.use(
     async (config) => {
         try {
-            const token = await SecureStore.getItemAsync('userToken');
+            const token = await storageAdapter.getItem('userToken');
             if (token) {
                 config.headers.Authorization = `Bearer ${token}`;
             }

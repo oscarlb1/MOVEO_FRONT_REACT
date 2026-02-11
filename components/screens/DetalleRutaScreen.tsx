@@ -13,7 +13,7 @@ export default function DetalleRutaScreen() {
     const [actionLoading, setActionLoading] = useState(false);
 
     useEffect(() => {
-        if (id) {
+        if (id) { 
             fetchRutaDetalle(Number(id));
         }
     }, [id]);
