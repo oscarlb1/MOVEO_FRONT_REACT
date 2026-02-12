@@ -1,8 +1,9 @@
 import RutaCard from '@/components/RutaCard';
 import { Ruta, rutaService } from '@/services/rutaService';
 import { useRouter } from 'expo-router';
+import { ArrowLeft, RefreshCw, Search } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, RefreshControl, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ListaRutasScreen() {
@@ -37,18 +38,48 @@ export default function ListaRutasScreen() {
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
+            <StatusBar barStyle="light-content" />
+
+            {/* Header */}
             <View style={styles.header}>
-                <Text style={styles.title}>Mis Rutas</Text>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                    <ArrowLeft color="white" size={24} />
+                </TouchableOpacity>
+                <View style={styles.titleContainer}>
+                    <Text style={styles.title}>Mis Rutas</Text>
+                    <Text style={styles.subtitle}>{rutas.length} Rutas Asignadas</Text>
+                </View>
+                <TouchableOpacity onPress={onRefresh} style={styles.headerAction}>
+                    <RefreshCw color="white" size={20} />
+                </TouchableOpacity>
+            </View>
+
+            {/* Search Bar Placeholder (Visual only for now) */}
+            <View style={styles.searchContainer}>
+                <View style={styles.searchWrapper}>
+                    <Search color="rgba(255, 255, 255, 0.3)" size={20} />
+                    <TextInput
+                        placeholder="Buscar por ID o matrícula..."
+                        placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                        style={styles.searchInput}
+                    />
+                </View>
             </View>
 
             {loading ? (
                 <View style={styles.loader}>
                     <ActivityIndicator size="large" color="#E67E50" />
+                    <Text style={styles.loadingText}>Cargando rutas...</Text>
                 </View>
             ) : error ? (
                 <View style={styles.centerContent}>
+                    <View style={styles.errorIconBox}>
+                        <Text style={styles.errorEmoji}>⚠️</Text>
+                    </View>
                     <Text style={styles.errorText}>{error}</Text>
-                    <Text style={styles.retryText} onPress={fetchRutas}>Intentar de nuevo</Text>
+                    <TouchableOpacity style={styles.retryButton} onPress={fetchRutas}>
+                        <Text style={styles.retryButtonText}>Reintentar</Text>
+                    </TouchableOpacity>
                 </View>
             ) : (
                 <FlatList
@@ -61,10 +92,20 @@ export default function ListaRutasScreen() {
                         />
                     )}
                     contentContainerStyle={styles.listContent}
-                    refreshing={refreshing}
-                    onRefresh={onRefresh}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
+                            tintColor="#E67E50"
+                            colors={['#E67E50']}
+                        />
+                    }
                     ListEmptyComponent={
-                        <Text style={styles.emptyText}>No tienes rutas asignadas.</Text>
+                        <View style={styles.emptyContainer}>
+                            <Text style={styles.emptyEmoji}>📦</Text>
+                            <Text style={styles.emptyText}>No hay rutas asignadas para hoy.</Text>
+                            <Text style={styles.emptySubtext}>Las rutas aparecerán aquí cuando el administrador las asigne.</Text>
+                        </View>
                     }
                 />
             )}
@@ -78,46 +119,137 @@ const styles = StyleSheet.create({
         backgroundColor: '#092C4C',
     },
     header: {
+        flexDirection: 'row',
+        alignItems: 'center',
         paddingHorizontal: 24,
-        paddingVertical: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+        paddingVertical: 20,
+        gap: 16,
+    },
+    backButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 15,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+    },
+    titleContainer: {
+        flex: 1,
     },
     title: {
-        fontSize: 24,
-        fontWeight: 'bold',
+        fontSize: 22,
+        fontWeight: '800',
         color: 'white',
+    },
+    subtitle: {
+        fontSize: 12,
+        color: 'rgba(255, 255, 255, 0.4)',
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        marginTop: 2,
+    },
+    headerAction: {
+        width: 44,
+        height: 44,
+        borderRadius: 15,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    searchContainer: {
+        paddingHorizontal: 24,
+        marginBottom: 20,
+    },
+    searchWrapper: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: 15,
+        paddingHorizontal: 15,
+        height: 50,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+    },
+    searchInput: {
+        flex: 1,
+        marginLeft: 10,
+        color: 'white',
+        fontSize: 15,
     },
     loader: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        gap: 16,
+    },
+    loadingText: {
+        color: 'rgba(255, 255, 255, 0.5)',
+        fontWeight: '600',
     },
     listContent: {
         padding: 24,
+        paddingTop: 0,
+    },
+    emptyContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 60,
+        paddingHorizontal: 40,
+    },
+    emptyEmoji: {
+        fontSize: 50,
+        marginBottom: 20,
+        opacity: 0.5,
     },
     emptyText: {
-        color: '#9BA1A6',
+        color: 'white',
         textAlign: 'center',
-        marginTop: 40,
-        fontSize: 16,
+        fontSize: 18,
+        fontWeight: '700',
+    },
+    emptySubtext: {
+        color: 'rgba(255, 255, 255, 0.4)',
+        textAlign: 'center',
+        marginTop: 10,
+        fontSize: 14,
+        lineHeight: 20,
     },
     centerContent: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 24,
+        padding: 40,
+    },
+    errorIconBox: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: 'rgba(255, 82, 82, 0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    errorEmoji: {
+        fontSize: 32,
     },
     errorText: {
-        color: '#FF4444',
+        color: '#FF5252',
         textAlign: 'center',
         fontSize: 16,
-        marginBottom: 16,
+        fontWeight: '600',
+        marginBottom: 24,
     },
-    retryText: {
-        color: '#E67E50',
+    retryButton: {
+        backgroundColor: '#E67E50',
+        paddingHorizontal: 30,
+        paddingVertical: 14,
+        borderRadius: 12,
+    },
+    retryButtonText: {
+        color: 'white',
         fontSize: 16,
-        fontWeight: 'bold',
-        textDecorationLine: 'underline',
+        fontWeight: '700',
     },
 });

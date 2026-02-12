@@ -4,14 +4,11 @@ export interface Ruta {
     id: number;
     fecha: string;
     conductorId: number;
+    nombreConductor: string;
     vehiculoId: number;
+    matriculaVehiculo: string;
     estado: string; // "PENDIENTE", "EN_PROGRESO", "COMPLETADA", "CANCELADA"
     distanciaTotalEstimada: number;
-    // Expanded with specific fields if needed
-    vehiculo?: {
-        matricula: string;
-        marcaModelo: string;
-    };
     entregas?: Entrega[];
 }
 

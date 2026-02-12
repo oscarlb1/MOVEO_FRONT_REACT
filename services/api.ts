@@ -7,8 +7,8 @@ import { storageAdapter } from './storageAdapter';
 const getApiUrl = () => {
     if (Platform.OS === 'web') return 'http://localhost:5079/api';
 
-    // For Android Emulator
-    // return 'http://10.0.2.2:5079/api';
+    // For Android Emulator (10.0.2.2 points to host's localhost)
+    if (Platform.OS === 'android') return 'http://10.0.2.2:5079/api';
 
     // dynamic IP for physical devices (development)
     const debuggerHost = Constants.expoConfig?.hostUri;
@@ -18,8 +18,8 @@ const getApiUrl = () => {
         return `http://${localhost}:5079/api`;
     }
 
-    // Fallback for Android Emulator if constants fail or not available
-    return 'http://10.0.2.2:5079/api';
+    // Fallback
+    return 'http://localhost:5079/api';
 };
 
 export const API_URL = getApiUrl();

@@ -1,4 +1,3 @@
-import { Colors } from '@/constants/theme';
 import { useAuth } from '@/store/authStore';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,6 +9,7 @@ import {
     Dimensions,
     KeyboardAvoidingView,
     Platform,
+    StatusBar,
     StyleSheet,
     Text,
     TextInput,
@@ -17,7 +17,7 @@ import {
     View
 } from 'react-native';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 export default function LoginScreen() {
     const [email, setEmail] = useState('');
@@ -43,32 +43,40 @@ export default function LoginScreen() {
     };
 
     return (
-        <LinearGradient
-            colors={Colors.dark.backgroundGradient as any}
-            style={styles.container}
-        >
+        <View style={styles.container}>
+            <StatusBar barStyle="light-content" />
+            <LinearGradient
+                colors={['#092C4C', '#061A2D']}
+                style={StyleSheet.absoluteFill}
+            />
+
+            {/* Decorative Background Elements */}
+            <View style={[styles.circle, { top: -50, right: -50, backgroundColor: 'rgba(230, 126, 80, 0.1)' }]} />
+            <View style={[styles.circle, { bottom: -100, left: -100, backgroundColor: 'rgba(230, 126, 80, 0.05)' }]} />
+
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={styles.innerContainer}
             >
                 <View style={styles.header}>
                     <View style={styles.logoContainer}>
-                        <Truck color="#white" size={32} />
+                        <Truck color="white" size={36} strokeWidth={2.5} />
                     </View>
-                    <Text style={styles.brandName}>Moveo</Text>
-                    <Text style={styles.welcomeText}>Bienvenido de vuelta</Text>
-                    <Text style={styles.subtitle}>Inicia sesión para acceder a tu panel de control</Text>
+                    <Text style={styles.brandName}>MOVEO</Text>
+                    <View style={styles.divider} />
+                    <Text style={styles.welcomeText}>Gestión Logística</Text>
+                    <Text style={styles.subtitle}>Inicia sesión con tus credenciales de repartidor</Text>
                 </View>
 
-                <BlurView intensity={20} tint="light" style={styles.loginCard}>
+                <BlurView intensity={30} tint="dark" style={styles.loginCard}>
                     <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Correo electrónico</Text>
+                        <Text style={styles.label}>Usuario / Email</Text>
                         <View style={styles.inputWrapper}>
-                            <Mail color="#9BA1A6" size={20} style={styles.inputIcon} />
+                            <Mail color="#E67E50" size={20} style={styles.inputIcon} />
                             <TextInput
                                 style={styles.input}
-                                placeholder="tu@empresa.com"
-                                placeholderTextColor="#9BA1A6"
+                                placeholder="usuario@moveo.com"
+                                placeholderTextColor="rgba(255, 255, 255, 0.3)"
                                 keyboardType="email-address"
                                 autoCapitalize="none"
                                 value={email}
@@ -80,11 +88,11 @@ export default function LoginScreen() {
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Contraseña</Text>
                         <View style={styles.inputWrapper}>
-                            <Lock color="#9BA1A6" size={20} style={styles.inputIcon} />
+                            <Lock color="#E67E50" size={20} style={styles.inputIcon} />
                             <TextInput
                                 style={styles.input}
                                 placeholder="••••••••"
-                                placeholderTextColor="#9BA1A6"
+                                placeholderTextColor="rgba(255, 255, 255, 0.3)"
                                 secureTextEntry={!showPassword}
                                 value={password}
                                 onChangeText={setPassword}
@@ -93,7 +101,7 @@ export default function LoginScreen() {
                                 onPress={() => setShowPassword(!showPassword)}
                                 style={styles.eyeIcon}
                             >
-                                {showPassword ? <EyeOff color="#9BA1A6" size={20} /> : <Eye color="#9BA1A6" size={20} />}
+                                {showPassword ? <EyeOff color="rgba(255, 255, 255, 0.5)" size={20} /> : <Eye color="rgba(255, 255, 255, 0.5)" size={20} />}
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -107,81 +115,88 @@ export default function LoginScreen() {
                             <ActivityIndicator color="white" />
                         ) : (
                             <>
-                                <Text style={styles.loginButtonText}>Iniciar sesión</Text>
+                                <Text style={styles.loginButtonText}>ACCERDER</Text>
                                 <ArrowRight color="white" size={20} />
                             </>
                         )}
                     </TouchableOpacity>
                 </BlurView>
 
-                <View style={styles.footer}>
-                    <TouchableOpacity>
-                        <Text style={styles.forgotText}>¿Olvidaste tu contraseña?</Text>
-                    </TouchableOpacity>
-
-                    <View style={styles.contactCard}>
-                        <Text style={styles.contactTitle}>¿Nuevo en Moveo?</Text>
-                        <Text style={styles.contactSubtitle}>Solicita tu acceso corporativo</Text>
-                        <TouchableOpacity style={styles.contactButton}>
-                            <Text style={styles.contactButtonText}>Contactar con soporte</Text>
-                        </TouchableOpacity>
-                    </View>
+                <View style={styles.footerContainer}>
+                    <Text style={styles.footerText}>Moveo Logistics System v2.0</Text>
                 </View>
             </KeyboardAvoidingView>
-        </LinearGradient>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        backgroundColor: '#092C4C',
     },
     innerContainer: {
         flex: 1,
-        paddingHorizontal: 24,
+        paddingHorizontal: 30,
         justifyContent: 'center',
+    },
+    circle: {
+        position: 'absolute',
+        width: 300,
+        height: 300,
+        borderRadius: 150,
     },
     header: {
         alignItems: 'center',
-        marginBottom: 40,
+        marginBottom: 50,
     },
     logoContainer: {
-        width: 60,
-        height: 60,
+        width: 80,
+        height: 80,
         backgroundColor: '#E67E50',
-        borderRadius: 16,
+        borderRadius: 24,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 16,
+        marginBottom: 20,
         shadowColor: '#E67E50',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 5,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.4,
+        shadowRadius: 15,
+        elevation: 10,
     },
     brandName: {
-        fontSize: 28,
-        fontWeight: '700',
+        fontSize: 32,
+        fontWeight: '900',
         color: 'white',
-        marginBottom: 8,
+        letterSpacing: 4,
+    },
+    divider: {
+        width: 40,
+        height: 4,
+        backgroundColor: '#E67E50',
+        marginVertical: 12,
+        borderRadius: 2,
     },
     welcomeText: {
-        fontSize: 24,
+        fontSize: 18,
         color: 'white',
         fontWeight: '600',
+        letterSpacing: 1,
         marginBottom: 8,
     },
     subtitle: {
         fontSize: 14,
-        color: '#9BA1A6',
+        color: 'rgba(255, 255, 255, 0.5)',
         textAlign: 'center',
+        paddingHorizontal: 20,
     },
     loginCard: {
-        borderRadius: 24,
-        padding: 24,
+        borderRadius: 30,
+        padding: 25,
         overflow: 'hidden',
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.1)',
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
     },
     inputGroup: {
         marginBottom: 20,
@@ -189,21 +204,22 @@ const styles = StyleSheet.create({
     label: {
         color: 'white',
         fontSize: 14,
-        marginBottom: 8,
-        fontWeight: '500',
+        marginBottom: 10,
+        fontWeight: '600',
+        opacity: 0.9,
     },
     inputWrapper: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: 12,
+        backgroundColor: 'rgba(0, 0, 0, 0.2)',
+        borderRadius: 15,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-        height: 56,
-        paddingHorizontal: 16,
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+        height: 60,
+        paddingHorizontal: 20,
     },
     inputIcon: {
-        marginRight: 12,
+        marginRight: 15,
     },
     input: {
         flex: 1,
@@ -211,22 +227,22 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
     eyeIcon: {
-        padding: 8,
+        padding: 5,
     },
     loginButton: {
         backgroundColor: '#E67E50',
-        height: 56,
-        borderRadius: 12,
+        height: 60,
+        borderRadius: 15,
         flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
-        marginTop: 10,
-        gap: 10,
+        marginTop: 15,
+        gap: 12,
         shadowColor: '#E67E50',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 10,
-        elevation: 5,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+        elevation: 8,
     },
     buttonDisabled: {
         opacity: 0.7,
@@ -234,50 +250,16 @@ const styles = StyleSheet.create({
     loginButtonText: {
         color: 'white',
         fontSize: 16,
-        fontWeight: '600',
+        fontWeight: '800',
+        letterSpacing: 2,
     },
-    footer: {
-        marginTop: 30,
+    footerContainer: {
+        marginTop: 40,
         alignItems: 'center',
     },
-    forgotText: {
-        color: '#E67E50',
-        fontSize: 14,
-        marginBottom: 24,
-    },
-    contactCard: {
-        width: '100%',
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: 20,
-        padding: 20,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.05)',
-    },
-    contactTitle: {
-        color: 'white',
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 4,
-    },
-    contactSubtitle: {
-        color: '#9BA1A6',
+    footerText: {
+        color: 'rgba(255, 255, 255, 0.3)',
         fontSize: 12,
-        marginBottom: 16,
-    },
-    contactButton: {
-        width: '100%',
-        height: 48,
-        borderRadius: 10,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    },
-    contactButtonText: {
-        color: 'white',
-        fontSize: 14,
         fontWeight: '500',
     }
 });

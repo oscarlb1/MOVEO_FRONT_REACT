@@ -13,13 +13,13 @@ function RootLayoutNav() {
     if (isLoading) return;
 
     const firstSegment = segments[0] as string;
-    const inAuthGroup = firstSegment === 'dashboard' || firstSegment === 'settings';
+    const inAuthenticatedGroup = ['dashboard', 'settings', 'rutas'].includes(firstSegment);
 
-    if (!user && inAuthGroup) {
+    if (!user && inAuthenticatedGroup) {
       // Redirect to the sign-in page if the user is not signed in
       router.replace('/');
-    } else if (user && firstSegment !== 'dashboard' && firstSegment !== 'settings') {
-      // Redirect to dashboard if signed in
+    } else if (user && firstSegment === undefined) {
+      // Redirect to dashboard if signed in and at root
       router.replace('/dashboard' as any);
     }
   }, [user, isLoading, segments]);
@@ -36,7 +36,9 @@ function RootLayoutNav() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="dashboard" options={{ headerShown: false }} />
-      <Stack.Screen name="settings" options={{ title: 'Mi Perfil', headerShown: true }} />
+      <Stack.Screen name="rutas/index" options={{ title: 'Mis Rutas', headerShown: true, headerStyle: { backgroundColor: '#092C4C' }, headerTintColor: 'white' }} />
+      <Stack.Screen name="rutas/[id]" options={{ title: 'Detalle de Ruta', headerShown: false }} />
+      <Stack.Screen name="settings" options={{ title: 'Mi Perfil', headerShown: true, headerStyle: { backgroundColor: '#092C4C' }, headerTintColor: 'white' }} />
     </Stack>
   );
 }

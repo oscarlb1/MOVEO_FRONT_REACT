@@ -1,8 +1,10 @@
+import { entregaService } from '@/services/entregaService';
 import { Ruta, rutaService } from '@/services/rutaService';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ArrowLeft, Map as MapIcon, MapPin } from 'lucide-react-native';
+import { ArrowLeft, ArrowRight, Calendar, CheckCircle2, MapPin, Navigation, Truck } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function DetalleRutaScreen() {
@@ -13,7 +15,7 @@ export default function DetalleRutaScreen() {
     const [actionLoading, setActionLoading] = useState(false);
 
     useEffect(() => {
-        if (id) { 
+        if (id) {
             fetchRutaDetalle(Number(id));
         }
     }, [id]);
@@ -50,24 +52,38 @@ export default function DetalleRutaScreen() {
         }
     };
 
+    const handleEntregaEstadoChange = async (entregaId: number, nuevoEstado: string) => {
+        setActionLoading(true);
+        const success = await entregaService.updateEstadoEntrega(entregaId, { nuevoEstado });
+        setActionLoading(false);
+
+        if (success) {
+            setRuta(prev => {
+                if (!prev || !prev.entregas) return prev;
+                const updatedEntregas = prev.entregas.map(e =>
+                    e.id === entregaId ? { ...e, estado: nuevoEstado } : e
+                );
+                return { ...prev, entregas: updatedEntregas };
+            });
+            Alert.alert('Éxito', 'Estado de entrega actualizado');
+        } else {
+            Alert.alert('Error', 'No se pudo actualizar la entrega');
+        }
+    };
+
     const openMap = () => {
         if (!ruta?.entregas || ruta.entregas.length === 0) {
             Alert.alert('Info', 'No hay entregas en esta ruta');
             return;
         }
 
-        // Sort deliveries just in case, though they should be sorted by ordenParada
         const sortedEntregas = [...ruta.entregas].sort((a, b) => a.ordenParada - b.ordenParada);
-
-        // Construct the URL
         const destination = encodeURIComponent(sortedEntregas[sortedEntregas.length - 1].cliente.direccion);
         const waypoints = sortedEntregas
             .slice(0, -1)
             .map(e => encodeURIComponent(e.cliente.direccion))
             .join('|');
 
-        // Universal Google Maps URL structure
-        // drive, walk, bicycle are modes. driving is default.
         const url = `https://www.google.com/maps/dir/?api=1&destination=${destination}&waypoints=${waypoints}&travelmode=driving`;
 
         Linking.openURL(url).catch(err => {
@@ -80,87 +96,136 @@ export default function DetalleRutaScreen() {
         return (
             <View style={styles.loader}>
                 <ActivityIndicator size="large" color="#E67E50" />
+                <Text style={styles.loadingText}>Cargando detalles...</Text>
             </View>
         );
     }
 
     if (!ruta) {
         return (
-            <View style={styles.container}>
-                <Text style={styles.errorText}>Ruta no encontrada</Text>
-            </View>
+            <SafeAreaView style={styles.container}>
+                <View style={styles.errorContainer}>
+                    <Text style={styles.errorText}>Ruta no encontrada</Text>
+                    <TouchableOpacity onPress={() => router.back()} style={styles.retryButton}>
+                        <Text style={styles.retryButtonText}>Volver</Text>
+                    </TouchableOpacity>
+                </View>
+            </SafeAreaView>
         );
     }
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
+            <StatusBar barStyle="light-content" />
+
+            {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <ArrowLeft color="white" size={24} />
                 </TouchableOpacity>
-                <Text style={styles.title}>Ruta #{ruta.id}</Text>
+                <View style={styles.titleContainer}>
+                    <Text style={styles.title}>Ruta #{ruta.id}</Text>
+                    <View style={styles.statusChip}>
+                        <View style={[styles.statusDot, { backgroundColor: ruta.estado === 'COMPLETADA' ? '#10B981' : '#E67E50' }]} />
+                        <Text style={styles.statusChipText}>{ruta.estado}</Text>
+                    </View>
+                </View>
+                <TouchableOpacity style={styles.mapIconButton} onPress={openMap}>
+                    <Navigation color="white" size={22} />
+                </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={styles.content}>
+            <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+
+                {/* Route Info Card */}
                 <View style={styles.infoCard}>
-                    <View style={styles.row}>
-                        <Text style={styles.label}>Estado:</Text>
-                        <Text style={styles.value}>{ruta.estado}</Text>
+                    <View style={styles.infoRow}>
+                        <View style={styles.infoItem}>
+                            <Calendar size={16} color="rgba(255, 255, 255, 0.4)" />
+                            <Text style={styles.infoLabel}>Fecha</Text>
+                            <Text style={styles.infoValue}>{new Date(ruta.fecha).toLocaleDateString()}</Text>
+                        </View>
+                        <View style={styles.infoDivider} />
+                        <View style={styles.infoItem}>
+                            <Truck size={16} color="rgba(255, 255, 255, 0.4)" />
+                            <Text style={styles.infoLabel}>Vehículo</Text>
+                            <Text style={styles.infoValue}>{ruta.matriculaVehiculo || 'N/A'}</Text>
+                        </View>
                     </View>
-                    <View style={styles.row}>
-                        <Text style={styles.label}>Fecha:</Text>
-                        <Text style={styles.value}>{new Date(ruta.fecha).toLocaleDateString()}</Text>
-                    </View>
-                    <View style={styles.row}>
-                        <Text style={styles.label}>Vehículo:</Text>
-                        <Text style={styles.value}>{ruta.vehiculo?.marcaModelo || 'N/A'}</Text>
+                    <View style={styles.infoRowSecondary}>
+                        <Text style={styles.distanceLabel}>Distancia estimada:</Text>
+                        <Text style={styles.distanceValue}>{ruta.distanciaTotalEstimada} km</Text>
                     </View>
                 </View>
 
-                <TouchableOpacity style={styles.mapButton} onPress={openMap}>
-                    <MapIcon color="white" size={20} />
-                    <Text style={styles.mapButtonText}>Ver Ruta en Mapa</Text>
-                </TouchableOpacity>
-
-                {/* Deliveries List */}
-                <Text style={styles.sectionTitle}>Entregas ({ruta.entregas?.length || 0})</Text>
-
-                {ruta.entregas?.map((entrega) => (
-                    <View key={entrega.id} style={styles.entregaCard}>
-                        <View style={styles.entregaHeader}>
-                            <View style={styles.orderBadge}>
-                                <Text style={styles.orderText}>{entrega.ordenParada}</Text>
-                            </View>
-                            <Text style={styles.clientName}>{entrega.cliente.nombreEmpresa}</Text>
-                        </View>
-
-                        <View style={styles.addressRow}>
-                            <MapPin size={16} color="#9BA1A6" />
-                            <Text style={styles.addressText}>{entrega.cliente.direccion}</Text>
-                        </View>
-
-                        <View style={[styles.statusBadge, { alignSelf: 'flex-start', marginTop: 8 }]}>
-                            <Text style={styles.statusTextSmall}>{entrega.estado}</Text>
-                        </View>
-                    </View>
-                ))}
-
-                {/* Action Button */}
+                {/* Main Action Button for Route */}
                 {ruta.estado !== 'COMPLETADA' && ruta.estado !== 'CANCELADA' && (
                     <TouchableOpacity
-                        style={[styles.actionButton, actionLoading && styles.disabledButton]}
+                        style={[styles.mainActionButton, actionLoading && styles.disabledButton]}
                         onPress={handleEstadoChange}
                         disabled={actionLoading}
                     >
-                        {actionLoading ? (
-                            <ActivityIndicator color="white" />
-                        ) : (
-                            <Text style={styles.actionButtonText}>
-                                {ruta.estado === 'PENDIENTE' ? 'Iniciar Ruta' : 'Finalizar Ruta'}
-                            </Text>
-                        )}
+                        <LinearGradient
+                            colors={['#E67E50', '#D35400']}
+                            style={styles.gradientButton}
+                        >
+                            {actionLoading ? (
+                                <ActivityIndicator color="white" />
+                            ) : (
+                                <>
+                                    <Text style={styles.mainActionButtonText}>
+                                        {ruta.estado === 'PENDIENTE' ? 'INICIAR RUTA' : 'FINALIZAR RUTA'}
+                                    </Text>
+                                    <ArrowRight color="white" size={20} />
+                                </>
+                            )}
+                        </LinearGradient>
                     </TouchableOpacity>
                 )}
+
+                {/* Deliveries Section */}
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Entregas Programadas</Text>
+                    <View style={styles.countBadge}>
+                        <Text style={styles.countText}>{ruta.entregas?.length || 0}</Text>
+                    </View>
+                </View>
+
+                {ruta.entregas?.map((entrega) => (
+                    <View key={entrega.id} style={styles.entregaCard}>
+                        <View style={styles.entregaMain}>
+                            <View style={styles.orderCircle}>
+                                <Text style={styles.orderNumber}>{entrega.ordenParada}</Text>
+                            </View>
+                            <View style={styles.entregaDetails}>
+                                <Text style={styles.clientName}>{entrega.cliente.nombreEmpresa}</Text>
+                                <View style={styles.addressRow}>
+                                    <MapPin size={14} color="rgba(255, 255, 255, 0.3)" />
+                                    <Text style={styles.addressText} numberOfLines={1}>{entrega.cliente.direccion}</Text>
+                                </View>
+                            </View>
+                            <View style={[styles.deliveryStatusBadge,
+                            entrega.estado === 'ENTREGADO' ? styles.statusSuccess :
+                                entrega.estado === 'CANCELADO' ? styles.statusError : styles.statusPending]}>
+                                <Text style={styles.deliveryStatusText}>{entrega.estado}</Text>
+                            </View>
+                        </View>
+
+                        {entrega.estado !== 'ENTREGADO' && entrega.estado !== 'CANCELADO' && (
+                            <View style={styles.deliveryActions}>
+                                <TouchableOpacity
+                                    style={styles.confirmBtn}
+                                    onPress={() => handleEntregaEstadoChange(entrega.id, 'ENTREGADO')}
+                                >
+                                    <CheckCircle2 color="#E67E50" size={18} />
+                                    <Text style={styles.confirmBtnText}>Marcar Entregado</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+                    </View>
+                ))}
+
+                <View style={styles.spacer} />
             </ScrollView>
         </SafeAreaView>
     );
@@ -176,140 +241,285 @@ const styles = StyleSheet.create({
         backgroundColor: '#092C4C',
         justifyContent: 'center',
         alignItems: 'center',
+        gap: 16,
+    },
+    loadingText: {
+        color: 'rgba(255, 255, 255, 0.5)',
+        fontWeight: '600',
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: 'rgba(255, 255, 255, 0.1)',
+        paddingHorizontal: 24,
+        paddingVertical: 20,
+        gap: 16,
     },
     backButton: {
-        marginRight: 16,
-    },
-    title: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: 'white',
-    },
-    content: {
-        padding: 16,
-    },
-    errorText: {
-        color: 'white',
-        textAlign: 'center',
-        marginTop: 20,
-    },
-    infoCard: {
+        width: 44,
+        height: 44,
+        borderRadius: 15,
         backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: 16,
-        padding: 16,
-        marginBottom: 24,
-    },
-    row: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 8,
-    },
-    label: {
-        color: '#9BA1A6',
-        fontSize: 14,
-    },
-    value: {
-        color: 'white',
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: 'white',
-        marginBottom: 16,
-    },
-    entregaCard: {
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.1)',
     },
-    entregaHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 8,
-    },
-    orderBadge: {
-        backgroundColor: '#E67E50',
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 12,
-    },
-    orderText: {
-        color: 'white',
-        fontWeight: 'bold',
-        fontSize: 12,
-    },
-    clientName: {
-        color: 'white',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    addressRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 8,
-    },
-    addressText: {
-        color: '#9BA1A6',
-        fontSize: 14,
+    titleContainer: {
         flex: 1,
     },
-    statusBadge: {
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 4,
+    title: {
+        fontSize: 22,
+        fontWeight: '800',
+        color: 'white',
     },
-    statusTextSmall: {
-        color: '#9BA1A6',
-        fontSize: 10,
-        fontWeight: 'bold',
-    },
-    actionButton: {
-        backgroundColor: '#E67E50',
-        padding: 16,
-        borderRadius: 12,
+    statusChip: {
+        flexDirection: 'row',
         alignItems: 'center',
-        marginTop: 24,
+        gap: 6,
+        marginTop: 4,
+    },
+    statusDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+    },
+    statusChipText: {
+        fontSize: 12,
+        color: 'rgba(255, 255, 255, 0.5)',
+        fontWeight: '700',
+        textTransform: 'uppercase',
+    },
+    mapIconButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 15,
+        backgroundColor: 'rgba(230, 126, 80, 0.15)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#E67E50',
+    },
+    content: {
+        padding: 24,
+    },
+    infoCard: {
+        backgroundColor: 'rgba(255, 255, 255, 0.04)',
+        borderRadius: 24,
+        padding: 24,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.08)',
+        marginBottom: 24,
+    },
+    infoRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    infoItem: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    infoLabel: {
+        fontSize: 11,
+        color: 'rgba(255, 255, 255, 0.4)',
+        marginTop: 6,
+        fontWeight: '600',
+        textTransform: 'uppercase',
+    },
+    infoValue: {
+        fontSize: 16,
+        color: 'white',
+        fontWeight: '700',
+        marginTop: 2,
+    },
+    infoDivider: {
+        width: 1,
+        height: 30,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    },
+    infoRowSecondary: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: 20,
+        paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255, 255, 255, 0.05)',
+        gap: 8,
+    },
+    distanceLabel: {
+        color: 'rgba(255, 255, 255, 0.4)',
+        fontSize: 13,
+    },
+    distanceValue: {
+        color: '#E67E50',
+        fontSize: 13,
+        fontWeight: '700',
+    },
+    mainActionButton: {
+        height: 64,
+        borderRadius: 20,
         marginBottom: 40,
+        overflow: 'hidden',
+        shadowColor: '#E67E50',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+        elevation: 6,
+    },
+    gradientButton: {
+        flex: 1,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 12,
+    },
+    mainActionButtonText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: '800',
+        letterSpacing: 1.5,
     },
     disabledButton: {
         opacity: 0.7,
     },
-    actionButtonText: {
-        color: 'white',
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
-    mapButton: {
-        backgroundColor: 'rgba(230, 126, 80, 0.2)',
-        padding: 12,
-        borderRadius: 12,
+    sectionHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        marginBottom: 24,
-        gap: 8,
+        marginBottom: 20,
+        gap: 10,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: '800',
+        color: 'white',
+    },
+    countBadge: {
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        paddingHorizontal: 10,
+        paddingVertical: 2,
+        borderRadius: 10,
+    },
+    countText: {
+        color: 'white',
+        fontSize: 12,
+        fontWeight: '700',
+    },
+    entregaCard: {
+        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+        borderRadius: 20,
+        padding: 16,
+        marginBottom: 16,
         borderWidth: 1,
-        borderColor: '#E67E50',
+        borderColor: 'rgba(255, 255, 255, 0.06)',
     },
-    mapButtonText: {
-        color: '#E67E50',
+    entregaMain: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    orderCircle: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: '#E67E50',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    orderNumber: {
+        color: 'white',
+        fontWeight: '800',
+        fontSize: 14,
+    },
+    entregaDetails: {
+        flex: 1,
+    },
+    clientName: {
+        color: 'white',
         fontSize: 16,
-        fontWeight: '600',
+        fontWeight: '700',
     },
+    addressRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginTop: 2,
+    },
+    addressText: {
+        color: 'rgba(255, 255, 255, 0.4)',
+        fontSize: 12,
+    },
+    deliveryStatusBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 6,
+    },
+    deliveryStatusText: {
+        fontSize: 10,
+        fontWeight: '800',
+        textTransform: 'uppercase',
+    },
+    statusSuccess: {
+        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(16, 185, 129, 0.2)',
+    },
+    statusError: {
+        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        borderWidth: 1,
+        borderColor: 'rgba(239, 68, 68, 0.2)',
+    },
+    statusPending: {
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+    },
+    deliveryActions: {
+        marginTop: 16,
+        paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255, 255, 255, 0.05)',
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+    },
+    confirmBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        backgroundColor: 'rgba(230, 126, 80, 0.1)',
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: 'rgba(230, 126, 80, 0.2)',
+    },
+    confirmBtnText: {
+        color: '#E67E50',
+        fontSize: 14,
+        fontWeight: '700',
+    },
+    spacer: {
+        height: 60,
+    },
+    errorContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 40,
+    },
+    errorText: {
+        color: '#FF5252',
+        fontSize: 18,
+        fontWeight: '700',
+        marginBottom: 20,
+    },
+    retryButton: {
+        backgroundColor: '#E67E50',
+        paddingHorizontal: 30,
+        paddingVertical: 12,
+        borderRadius: 12,
+    },
+    retryButtonText: {
+        color: 'white',
+        fontWeight: '700',
+    }
 });
