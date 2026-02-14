@@ -1,3 +1,4 @@
+import { useLocationTracker } from '@/hooks/useLocationTracker';
 import { entregaService } from '@/services/entregaService';
 import { Ruta, rutaService } from '@/services/rutaService';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -6,6 +7,7 @@ import { ArrowLeft, ArrowRight, Calendar, CheckCircle2, MapPin, Navigation, Truc
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Linking, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import ConfirmacionEntregaModal from '../modals/ConfirmacionEntregaModal';
 
 export default function DetalleRutaScreen() {
     const { id } = useLocalSearchParams();
@@ -13,6 +15,16 @@ export default function DetalleRutaScreen() {
     const [ruta, setRuta] = useState<Ruta | null>(null);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
+
+    // Delivery Modal State
+    const [selectedEntrega, setSelectedEntrega] = useState<{ id: number, cliente: any } | null>(null);
+    const [modalVisible, setModalVisible] = useState(false);
+
+    // Location Tracking
+    const { location } = useLocationTracker(
+        ruta ? ruta.id : null,
+        ruta?.estado === 'EN_PROGRESO'
+    );
 
     useEffect(() => {
         if (id) {
@@ -53,8 +65,32 @@ export default function DetalleRutaScreen() {
     };
 
     const handleEntregaEstadoChange = async (entregaId: number, nuevoEstado: string) => {
+        console.log('handleEntregaEstadoChange called', { entregaId, nuevoEstado });
+        // Alert.alert('Debug', `Clic en ${nuevoEstado} para ID ${entregaId}`);
+
+        const entrega = ruta?.entregas?.find(e => e.id === entregaId);
+        if (!entrega) {
+            console.warn('Entrega not found in current route');
+            return;
+        }
+
+        if (nuevoEstado === 'ENTREGADO') {
+            console.log('Opening confirmation modal');
+            setSelectedEntrega({ id: entregaId, cliente: entrega.cliente });
+            setModalVisible(true);
+            return;
+        }
+
+        // For other states (like CANCELADO), proceed directly or handle as needed
+        await processEntregaUpdate(entregaId, nuevoEstado);
+    };
+
+    const processEntregaUpdate = async (entregaId: number, nuevoEstado: string, signature?: string) => {
         setActionLoading(true);
-        const success = await entregaService.updateEstadoEntrega(entregaId, { Estado: nuevoEstado });
+        const success = await entregaService.updateEstadoEntrega(entregaId, {
+            Estado: nuevoEstado,
+            FirmaDigitalUrl: signature
+        });
         setActionLoading(false);
 
         if (success) {
@@ -227,6 +263,21 @@ export default function DetalleRutaScreen() {
 
                 <View style={styles.spacer} />
             </ScrollView>
+
+            <ConfirmacionEntregaModal
+                visible={modalVisible}
+                onClose={() => {
+                    setModalVisible(false);
+                    setSelectedEntrega(null);
+                }}
+                onConfirm={async (signature) => {
+                    if (selectedEntrega) {
+                        await processEntregaUpdate(selectedEntrega.id, 'ENTREGADO', signature);
+                    }
+                }}
+                clienteCoords={selectedEntrega?.cliente}
+                userCoords={location}
+            />
         </SafeAreaView>
     );
 }

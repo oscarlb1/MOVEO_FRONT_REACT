@@ -5,21 +5,19 @@ import { storageAdapter } from './storageAdapter';
 
 // Dynamic API URL determination
 const getApiUrl = () => {
-    if (Platform.OS === 'web') return 'http://localhost:5079/api';
-
-    // For Android Emulator (10.0.2.2 points to host's localhost)
-    if (Platform.OS === 'android') return 'http://10.0.2.2:5079/api';
+    if (Platform.OS === 'web') return 'http://localhost:5079/api/';
+    if (Platform.OS === 'android') return 'http://10.0.2.2:5079/api/';
 
     // dynamic IP for physical devices (development)
     const debuggerHost = Constants.expoConfig?.hostUri;
     const localhost = debuggerHost?.split(':')[0];
 
     if (localhost) {
-        return `http://${localhost}:5079/api`;
+        return `http://${localhost}:5079/api/`;
     }
 
     // Fallback
-    return 'http://localhost:5079/api';
+    return 'http://localhost:5079/api/';
 };
 
 export const API_URL = getApiUrl();
@@ -28,6 +26,7 @@ console.log('API_URL configured as:', API_URL);
 
 const api = axios.create({
     baseURL: API_URL,
+    timeout: 10000,
     headers: {
         'Content-Type': 'application/json',
     },

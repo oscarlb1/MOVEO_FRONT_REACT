@@ -24,7 +24,7 @@ export default function SettingsScreen() {
         setIsSaving(true);
         try {
             // Updated to use the api service
-            await api.put('/Usuarios/me', {
+            await api.put('Usuarios/me', {
                 nombre,
                 telefono,
             });

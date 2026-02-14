@@ -21,7 +21,7 @@ interface LoginResponse {
 export const authService = {
     async login(email: string, password: string): Promise<{ user: User; token: string }> {
         try {
-            const response = await api.post<LoginResponse>('/Auth/iniciar-sesion', { email, password });
+            const response = await api.post<LoginResponse>('Auth/iniciar-sesion', { email, password });
             const { tokenDeAcceso } = response.data;
 
             const decoded: any = jwtDecode(tokenDeAcceso);
@@ -64,7 +64,7 @@ export const authService = {
 
     async logout() {
         try {
-            await api.post('/Auth/cerrar-sesion', {}).catch((e) => console.log('Backend logout failed or ignored', e));
+            await api.post('Auth/cerrar-sesion', {}).catch((e) => console.log('Backend logout failed or ignored', e));
         } finally {
             await storageAdapter.deleteItem('userToken');
             await AsyncStorage.removeItem('userData');

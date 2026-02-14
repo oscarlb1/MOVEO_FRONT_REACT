@@ -18,29 +18,30 @@ export interface Entrega {
     ordenParada: number;
     cliente: {
         nombreEmpresa: string;
-        alamat: string; // Backend might use 'direccion', need to check DTO match
         direccion: string;
         telefono: string;
+        latitud?: number;
+        longitud?: number;
     };
 }
 
 export const rutaService = {
     // Get routes for the logged-in user
     async getMisRutas(): Promise<Ruta[]> {
-        const response = await api.get<Ruta[]>('/Ruta/me');
+        const response = await api.get<Ruta[]>('Ruta/me');
         return response.data;
     },
 
     // Get specific route details
     async getRutaDetalle(id: number): Promise<Ruta> {
-        const response = await api.get<Ruta>(`/Ruta/${id}`);
+        const response = await api.get<Ruta>(`Ruta/${id}`);
         return response.data;
     },
 
     // Update route status
     async updateEstadoRuta(id: number, nuevoEstado: string): Promise<boolean> {
         try {
-            await api.patch(`/Ruta/${id}/estado`, { nuevoEstado });
+            await api.patch(`Ruta/${id}/estado`, { NuevoEstado: nuevoEstado });
             return true;
         } catch (error) {
             console.error('Error updating route status', error);

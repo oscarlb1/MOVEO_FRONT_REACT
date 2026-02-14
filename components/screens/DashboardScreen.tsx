@@ -1,16 +1,41 @@
+import { EstadisticaHoy, statsService } from '@/services/statsService';
 import { useAuth } from '@/store/authStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Bell, Calendar, Info, LogOut, MapPin, Package, Truck, User } from 'lucide-react-native';
-import React from 'react';
-import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, RefreshControl, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function DashboardScreen() {
     const { user, logout } = useAuth();
     const router = useRouter();
+    const [stats, setStats] = useState<EstadisticaHoy | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+
+    const fetchStats = async () => {
+        try {
+            const data = await statsService.getMisEstadisticasHoy();
+            setStats(data);
+        } catch (error) {
+            console.error('Error fetching dashboard stats', error);
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchStats();
+    }, []);
+
+    const onRefresh = () => {
+        setRefreshing(true);
+        fetchStats();
+    };
 
     const menuItems = [
-        { title: 'Mis Entregas', icon: Package, color: '#E67E50', subtitle: 'Gesionadas: 12' },
+        { title: 'Mis Entregas', icon: Package, color: '#E67E50', subtitle: stats ? `Gestionadas: ${stats.entregasTotales}` : 'Cargando...', onPress: () => router.push('/entregas' as any) },
         { title: 'Mis Rutas', icon: MapPin, color: '#E67E50', subtitle: 'Ver rutas hoy', onPress: () => router.push('/rutas' as any) },
         { title: 'Mi Vehículo', icon: Truck, color: '#E67E50', subtitle: 'Estado: Óptimo' },
         { title: 'Mi Perfil', icon: User, color: '#E67E50', subtitle: 'Configurar cuenta', onPress: () => router.push('/settings' as any) },
@@ -19,7 +44,13 @@ export default function DashboardScreen() {
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle="light-content" />
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            <ScrollView
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#E67E50" />
+                }
+            >
 
                 {/* Header */}
                 <View style={styles.header}>
@@ -51,24 +82,28 @@ export default function DashboardScreen() {
                             <Calendar color="#E67E50" size={20} />
                         </View>
                         <Text style={styles.statsTitle}>Actividad de Hoy</Text>
-                        <TouchableOpacity>
-                            <Info color="rgba(255, 255, 255, 0.4)" size={18} />
+                        <TouchableOpacity onPress={onRefresh}>
+                            {loading ? (
+                                <ActivityIndicator size="small" color="#E67E50" />
+                            ) : (
+                                <Info color="rgba(255, 255, 255, 0.4)" size={18} />
+                            )}
                         </TouchableOpacity>
                     </View>
 
                     <View style={styles.statsGrid}>
                         <View style={styles.statItem}>
-                            <Text style={styles.statValue}>12</Text>
+                            <Text style={styles.statValue}>{stats?.entregasCompletadas ?? 0}</Text>
                             <Text style={styles.statLabel}>Entregas</Text>
                         </View>
                         <View style={styles.statDivider} />
                         <View style={styles.statItem}>
-                            <Text style={styles.statValue}>85%</Text>
+                            <Text style={styles.statValue}>{stats?.eficiencia ?? 0}%</Text>
                             <Text style={styles.statLabel}>Eficiencia</Text>
                         </View>
                         <View style={styles.statDivider} />
                         <View style={styles.statItem}>
-                            <Text style={styles.statValue}>3h 45m</Text>
+                            <Text style={styles.statValue}>{stats?.tiempoEnRuta ?? '0h 0m'}</Text>
                             <Text style={styles.statLabel}>En Ruta</Text>
                         </View>
                     </View>
