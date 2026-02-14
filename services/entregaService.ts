@@ -1,7 +1,7 @@
 import api from './api';
 
 export interface ActualizarEstadoEntregaDto {
-    nuevoEstado: string;
+    Estado: string;
     notas?: string;
     fotoUrl?: string;
     firmaDigitalUrl?: string;

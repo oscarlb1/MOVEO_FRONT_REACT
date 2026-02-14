@@ -54,7 +54,7 @@ export default function DetalleRutaScreen() {
 
     const handleEntregaEstadoChange = async (entregaId: number, nuevoEstado: string) => {
         setActionLoading(true);
-        const success = await entregaService.updateEstadoEntrega(entregaId, { nuevoEstado });
+        const success = await entregaService.updateEstadoEntrega(entregaId, { Estado: nuevoEstado });
         setActionLoading(false);
 
         if (success) {
