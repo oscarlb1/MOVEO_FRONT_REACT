@@ -1,13 +1,16 @@
+import { WebColors } from '@/constants/theme';
 import { EstadisticaHoy, statsService } from '@/services/statsService';
 import { useAuth } from '@/store/authStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Bell, Calendar, LogOut, MapPin, Package, RefreshCw, Truck, User } from 'lucide-react-native';
+import { Bell, Calendar, ChevronRight, LogOut, MapPin, Package, RefreshCw, Truck, User } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, RefreshControl, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+const theme = WebColors.dark;
 
 export default function DashboardScreen() {
-    // ... rest of the component
     const { user, logout } = useAuth();
     const router = useRouter();
     const [stats, setStats] = useState<EstadisticaHoy | null>(null);
@@ -36,58 +39,58 @@ export default function DashboardScreen() {
     };
 
     const menuItems = [
-        { title: 'Mis Entregas', icon: Package, color: '#E67E50', subtitle: stats ? `Gestionadas: ${stats.entregasTotales}` : 'Cargando...', onPress: () => router.push('/entregas' as any) },
-        { title: 'Mis Rutas', icon: MapPin, color: '#E67E50', subtitle: 'Ver rutas hoy', onPress: () => router.push('/rutas' as any) },
-        { title: 'Mi Vehículo', icon: Truck, color: '#E67E50', subtitle: 'Estado: Óptimo' },
-        { title: 'Mi Perfil', icon: User, color: '#E67E50', subtitle: 'Configurar cuenta', onPress: () => router.push('/settings' as any) },
+        { title: 'Mis Entregas', icon: Package, color: theme.primary, subtitle: stats ? `${stats.entregasTotales} asignadas` : 'Cargando...', onPress: () => router.push('/entregas' as any) },
+        { title: 'Mis Rutas', icon: MapPin, color: theme.primary, subtitle: 'Ver ruta de hoy', onPress: () => router.push('/rutas' as any) },
+        { title: 'Mi Vehículo', icon: Truck, color: theme.primary, subtitle: 'Estado: Óptimo' },
+        { title: 'Mi Perfil', icon: User, color: theme.primary, subtitle: 'Configurar cuenta', onPress: () => router.push('/settings' as any) },
     ];
 
     return (
-        <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" />
+        <SafeAreaView style={styles.container} edges={['top']}>
+            <StatusBar barStyle="light-content" backgroundColor={theme.background} />
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#E67E50" />
+                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />
                 }
             >
 
                 {/* Header */}
                 <View style={styles.header}>
                     <View>
-                        <Text style={styles.welcomeText}>Panel de Control</Text>
-                        <Text style={styles.userNameText}>{user?.nombre || 'Repartidor'}</Text>
+                        <Text style={styles.welcomeText}>Hola,</Text>
+                        <Text style={styles.userNameText}>{user?.nombre || 'Conductor'}</Text>
                     </View>
                     <View style={styles.headerActions}>
                         <TouchableOpacity style={styles.headerIconButton}>
-                            <Bell color="white" size={22} />
+                            <Bell color={theme.text} size={20} />
                             <View style={styles.notificationBadge} />
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={styles.profileIcon}
                             onPress={() => router.push('/settings' as any)}
                         >
-                            <User color="white" size={24} />
+                            <User color="white" size={20} />
                         </TouchableOpacity>
                     </View>
                 </View>
 
                 {/* Main Stats Card */}
                 <LinearGradient
-                    colors={['rgba(230, 126, 80, 0.2)', 'rgba(230, 126, 80, 0.05)']}
+                    colors={[theme.card, theme.card]} // Solid for now, or subtle gradient
                     style={styles.statsCard}
                 >
                     <View style={styles.statsHeader}>
                         <View style={styles.statsIconBox}>
-                            <Calendar color="#E67E50" size={20} />
+                            <Calendar color={theme.primary} size={20} />
                         </View>
-                        <Text style={styles.statsTitle}>Actividad de Hoy</Text>
-                        <TouchableOpacity onPress={onRefresh}>
+                        <Text style={styles.statsTitle}>Tu Actividad Hoy</Text>
+                        <TouchableOpacity onPress={onRefresh} style={styles.refreshButton}>
                             {loading ? (
-                                <ActivityIndicator size="small" color="#E67E50" />
+                                <ActivityIndicator size="small" color={theme.primary} />
                             ) : (
-                                <RefreshCw color="rgba(255, 255, 255, 0.4)" size={18} />
+                                <RefreshCw color={theme.textSecondary} size={16} />
                             )}
                         </TouchableOpacity>
                     </View>
@@ -110,38 +113,33 @@ export default function DashboardScreen() {
                     </View>
                 </LinearGradient>
 
-                {/* Modules Section */}
-                <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Servicios Principales</Text>
-                </View>
-
-                <View style={styles.grid}>
+                {/* Menu Section */}
+                <View style={styles.menuContainer}>
                     {menuItems.map((item, index) => (
                         <TouchableOpacity
                             key={index}
-                            style={styles.card}
+                            style={styles.menuItem}
                             onPress={item.onPress}
                             activeOpacity={0.7}
                         >
-                            <View style={styles.cardContent}>
-                                <View style={[styles.iconContainer, { backgroundColor: 'rgba(230, 126, 80, 0.1)' }]}>
-                                    <item.icon color={item.color} size={26} />
-                                </View>
-                                <View style={styles.cardTextContainer}>
-                                    <Text style={styles.cardTitle}>{item.title}</Text>
-                                    <Text style={styles.cardSubtitle}>{item.subtitle}</Text>
-                                </View>
+                            <View style={[styles.menuIconContainer, { backgroundColor: `${theme.primary}15` }]}>
+                                <item.icon color={theme.primary} size={22} />
                             </View>
+                            <View style={styles.menuTextContainer}>
+                                <Text style={styles.menuTitle}>{item.title}</Text>
+                                <Text style={styles.menuSubtitle}>{item.subtitle}</Text>
+                            </View>
+                            <ChevronRight color={theme.textSecondary} size={20} />
                         </TouchableOpacity>
                     ))}
                 </View>
 
                 {/* Quick Logout */}
                 <TouchableOpacity style={styles.logoutButton} onPress={logout}>
-                    <LogOut color="#FF5252" size={20} />
-                    <Text style={styles.logoutText}>Finalizar Turno / Salir</Text>
+                    <LogOut color={theme.danger || '#ef4444'} size={18} />
+                    <Text style={styles.logoutText}>Finalizar Turno</Text>
                 </TouchableOpacity>
-                <Text style={styles.versionText}>Moveo Logistics v2.0.4</Text>
+                <Text style={styles.versionText}>Moveo App v2.1.0</Text>
             </ScrollView>
         </SafeAreaView>
     );
@@ -150,7 +148,7 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#092C4C',
+        backgroundColor: theme.background,
     },
     scrollContent: {
         padding: 24,
@@ -160,87 +158,89 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 32,
+        marginBottom: 30,
         marginTop: 10,
     },
     headerActions: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 15,
+        gap: 12,
     },
     headerIconButton: {
-        width: 45,
-        height: 45,
-        borderRadius: 15,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        backgroundColor: theme.card,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: theme.cardBorder,
     },
     notificationBadge: {
         position: 'absolute',
-        top: 12,
-        right: 12,
+        top: 10,
+        right: 10,
         width: 8,
         height: 8,
         borderRadius: 4,
-        backgroundColor: '#E67E50',
-        borderWidth: 1,
-        borderColor: '#092C4C',
+        backgroundColor: theme.primary,
+        borderWidth: 2,
+        borderColor: theme.card,
     },
     welcomeText: {
         fontSize: 14,
-        color: 'rgba(255, 255, 255, 0.5)',
+        color: theme.textSecondary,
         fontWeight: '500',
-        letterSpacing: 1,
-        textTransform: 'uppercase',
     },
     userNameText: {
-        fontSize: 26,
-        fontWeight: '800',
-        color: 'white',
-        marginTop: 4,
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: theme.text,
+        marginTop: 2,
     },
     profileIcon: {
-        width: 50,
-        height: 50,
-        borderRadius: 18,
-        backgroundColor: '#E67E50',
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        backgroundColor: theme.primary,
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: '#E67E50',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 5,
     },
     statsCard: {
-        borderRadius: 24,
+        borderRadius: 20,
         padding: 24,
         borderWidth: 1,
-        borderColor: 'rgba(230, 126, 80, 0.3)',
-        marginBottom: 35,
+        borderColor: theme.cardBorder,
+        marginBottom: 32,
+        backgroundColor: theme.card,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 10,
+        elevation: 3,
     },
     statsHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: 24,
     },
     statsIconBox: {
-        width: 36,
-        height: 36,
-        borderRadius: 10,
-        backgroundColor: 'rgba(230, 126, 80, 0.2)',
+        width: 32,
+        height: 32,
+        borderRadius: 8,
+        backgroundColor: `${theme.primary}20`,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 12,
+        marginRight: 10,
     },
     statsTitle: {
         fontSize: 16,
-        color: 'white',
-        fontWeight: '700',
+        color: theme.text,
+        fontWeight: '600',
         flex: 1,
+    },
+    refreshButton: {
+        padding: 4,
     },
     statsGrid: {
         flexDirection: 'row',
@@ -252,89 +252,76 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     statValue: {
-        fontSize: 20,
-        fontWeight: '800',
-        color: 'white',
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: theme.text,
+        marginBottom: 4,
     },
     statLabel: {
-        fontSize: 11,
-        color: 'rgba(255, 255, 255, 0.4)',
-        marginTop: 4,
-        fontWeight: '600',
-        textTransform: 'uppercase',
+        fontSize: 12,
+        color: theme.textSecondary,
+        fontWeight: '500',
     },
     statDivider: {
         width: 1,
-        height: 30,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        height: 32,
+        backgroundColor: theme.cardBorder,
     },
-    sectionHeader: {
-        marginBottom: 20,
+    menuContainer: {
+        gap: 12,
     },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: '800',
-        color: 'white',
-        letterSpacing: 0.5,
-    },
-    grid: {
-        gap: 16,
-    },
-    card: {
-        backgroundColor: 'rgba(255, 255, 255, 0.04)',
-        borderRadius: 22,
-        padding: 20,
-        borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.08)',
-    },
-    cardContent: {
+    menuItem: {
         flexDirection: 'row',
         alignItems: 'center',
-    },
-    iconContainer: {
-        width: 56,
-        height: 56,
+        backgroundColor: theme.card,
+        padding: 16,
         borderRadius: 16,
+        borderWidth: 1,
+        borderColor: theme.cardBorder,
+    },
+    menuIconContainer: {
+        width: 40,
+        height: 40,
+        borderRadius: 10,
         justifyContent: 'center',
         alignItems: 'center',
         marginRight: 16,
     },
-    cardTextContainer: {
+    menuTextContainer: {
         flex: 1,
     },
-    cardTitle: {
-        fontSize: 17,
-        fontWeight: '700',
-        color: 'white',
+    menuTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: theme.text,
+        marginBottom: 2,
     },
-    cardSubtitle: {
+    menuSubtitle: {
         fontSize: 13,
-        color: 'rgba(255, 255, 255, 0.4)',
-        marginTop: 4,
+        color: theme.textSecondary,
     },
     logoutButton: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        marginTop: 40,
+        marginTop: 32,
         padding: 16,
-        gap: 12,
-        backgroundColor: 'rgba(255, 82, 82, 0.05)',
-        borderRadius: 15,
+        gap: 10,
+        backgroundColor: `${theme.danger}10`, // 10% opacity danger color
+        borderRadius: 12,
         borderWidth: 1,
-        borderColor: 'rgba(255, 82, 82, 0.1)',
+        borderColor: `${theme.danger}20`,
     },
     logoutText: {
-        color: '#FF5252',
+        color: theme.danger,
         fontSize: 15,
-        fontWeight: '700',
-        letterSpacing: 0.5,
+        fontWeight: '600',
     },
     versionText: {
         textAlign: 'center',
-        color: 'rgba(255, 255, 255, 0.15)',
+        color: theme.textSecondary,
         fontSize: 11,
-        marginTop: 20,
-        fontWeight: '500',
+        marginTop: 24,
+        opacity: 0.5,
     }
 });

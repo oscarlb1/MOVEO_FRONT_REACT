@@ -20,7 +20,7 @@ function RootLayoutNav() {
       router.replace('/');
     } else if (user && firstSegment === undefined) {
       // Redirect to dashboard if signed in and at root
-      router.replace('/dashboard' as any);
+      router.replace('/(tabs)/entregas' as any);
     }
   }, [user, isLoading, segments]);
 
@@ -35,11 +35,7 @@ function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
-      <Stack.Screen name="dashboard" options={{ headerShown: false }} />
-      <Stack.Screen name="entregas" options={{ title: 'Mis Entregas', headerShown: false }} />
-      <Stack.Screen name="rutas/index" options={{ title: 'Mis Rutas', headerShown: true, headerStyle: { backgroundColor: '#092C4C' }, headerTintColor: 'white' }} />
-      <Stack.Screen name="rutas/[id]" options={{ title: 'Detalle de Ruta', headerShown: false }} />
-      <Stack.Screen name="settings" options={{ title: 'Mi Perfil', headerShown: true, headerStyle: { backgroundColor: '#092C4C' }, headerTintColor: 'white' }} />
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
     </Stack>
   );
 }

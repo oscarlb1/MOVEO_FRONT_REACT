@@ -32,6 +32,21 @@ export const Colors = {
   },
 };
 
+export const WebColors = {
+  dark: {
+    background: '#0a0f1a', // Rich Black/Blue (Web Body)
+    card: '#1a2332',       // Dark Slate (Web Cards)
+    cardBorder: '#2a3441', // Subtle Border
+    text: '#ffffff',
+    textSecondary: '#9ca3af', // Gray-400
+    primary: '#E67E50',
+    success: '#10b981',
+    warning: '#f59e0b',
+    danger: '#ef4444',
+    info: '#3b82f6'
+  }
+};
+
 export const Fonts = Platform.select({
   ios: {
     /** iOS `UIFontDescriptorSystemDesignDefault` */
