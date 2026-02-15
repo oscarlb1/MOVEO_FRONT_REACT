@@ -2,11 +2,12 @@ import { EstadisticaHoy, statsService } from '@/services/statsService';
 import { useAuth } from '@/store/authStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Bell, Calendar, Info, LogOut, MapPin, Package, Truck, User } from 'lucide-react-native';
+import { Bell, Calendar, LogOut, MapPin, Package, RefreshCw, Truck, User } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, RefreshControl, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function DashboardScreen() {
+    // ... rest of the component
     const { user, logout } = useAuth();
     const router = useRouter();
     const [stats, setStats] = useState<EstadisticaHoy | null>(null);
@@ -86,7 +87,7 @@ export default function DashboardScreen() {
                             {loading ? (
                                 <ActivityIndicator size="small" color="#E67E50" />
                             ) : (
-                                <Info color="rgba(255, 255, 255, 0.4)" size={18} />
+                                <RefreshCw color="rgba(255, 255, 255, 0.4)" size={18} />
                             )}
                         </TouchableOpacity>
                     </View>

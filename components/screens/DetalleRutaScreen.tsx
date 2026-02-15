@@ -128,6 +128,14 @@ export default function DetalleRutaScreen() {
         });
     };
 
+    const handleOpenSingleMap = (direccion: string) => {
+        const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(direccion)}`;
+        Linking.openURL(url).catch(err => {
+            console.error('Error opening maps', err);
+            Alert.alert('Error', 'No se pudo abrir el mapa');
+        });
+    };
+
     if (loading) {
         return (
             <View style={styles.loader}>
@@ -229,7 +237,11 @@ export default function DetalleRutaScreen() {
 
                 {ruta.entregas?.map((entrega) => (
                     <View key={entrega.id} style={styles.entregaCard}>
-                        <View style={styles.entregaMain}>
+                        <TouchableOpacity
+                            style={styles.entregaMain}
+                            activeOpacity={0.6}
+                            onPress={() => handleOpenSingleMap(entrega.cliente.direccion)}
+                        >
                             <View style={styles.orderCircle}>
                                 <Text style={styles.orderNumber}>{entrega.ordenParada}</Text>
                             </View>
@@ -245,7 +257,7 @@ export default function DetalleRutaScreen() {
                                 entrega.estado === 'CANCELADO' ? styles.statusError : styles.statusPending]}>
                                 <Text style={styles.deliveryStatusText}>{entrega.estado}</Text>
                             </View>
-                        </View>
+                        </TouchableOpacity>
 
                         {entrega.estado !== 'ENTREGADO' && entrega.estado !== 'CANCELADO' && (
                             <View style={styles.deliveryActions}>

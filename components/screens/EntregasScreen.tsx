@@ -2,9 +2,10 @@ import { Entrega, rutaService } from '@/services/rutaService';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, MapPin, Package, Search } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, SafeAreaView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Linking, RefreshControl, SafeAreaView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function EntregasScreen() {
+    // ... (rest of states remain same)
     const [entregas, setEntregas] = useState<Entrega[]>([]);
     const [filteredEntregas, setFilteredEntregas] = useState<Entrega[]>([]);
     const [loading, setLoading] = useState(true);
@@ -12,15 +13,19 @@ export default function EntregasScreen() {
     const [searchQuery, setSearchQuery] = useState('');
     const router = useRouter();
 
+    const handleOpenMaps = (direccion: string) => {
+        const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(direccion)}`;
+        Linking.openURL(url).catch(err => {
+            console.error('Error opening maps', err);
+            Alert.alert('Error', 'No se pudo abrir el mapa');
+        });
+    };
+
     const fetchData = async () => {
+        // ... (fetchData implementation remains same)
         try {
             const rutas = await rutaService.getMisRutas();
-            // Aggregate all deliveries from all routes
             const allEntregas: Entrega[] = [];
-
-            // For each route, we need the details to get the deliveries
-            // This is a bit heavy, ideally we'd have an endpoint for this
-            // But for now, we follow the current service structure
             const detailPromises = rutas.map(r => rutaService.getRutaDetalle(r.id));
             const detailedRutas = await Promise.all(detailPromises);
 
@@ -66,8 +71,7 @@ export default function EntregasScreen() {
             <TouchableOpacity
                 style={styles.card}
                 activeOpacity={0.7}
-            // We don't have the routeId directly in Entrega, need to handle this
-            // For now, it's a read-only view or needs a service update
+                onPress={() => handleOpenMaps(item.cliente.direccion)}
             >
                 <View style={styles.cardHeader}>
                     <View style={styles.iconBox}>
@@ -88,7 +92,10 @@ export default function EntregasScreen() {
                 </View>
 
                 <View style={styles.footer}>
-                    <Text style={styles.stopText}>Parada #{item.ordenParada}</Text>
+                    <View style={styles.footerContent}>
+                        <Text style={styles.stopText}>Parada #{item.ordenParada}</Text>
+                        <Text style={styles.mapHint}>Toca para ver en Google Maps</Text>
+                    </View>
                 </View>
             </TouchableOpacity>
         );
@@ -260,10 +267,20 @@ const styles = StyleSheet.create({
         borderTopColor: 'rgba(255, 255, 255, 0.05)',
         paddingTop: 12,
     },
+    footerContent: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
     stopText: {
         fontSize: 12,
         fontWeight: '600',
         color: '#E67E50',
+    },
+    mapHint: {
+        fontSize: 11,
+        color: 'rgba(255, 255, 255, 0.2)',
+        fontStyle: 'italic',
     },
     loader: {
         flex: 1,

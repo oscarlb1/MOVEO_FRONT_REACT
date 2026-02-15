@@ -57,15 +57,18 @@ api.interceptors.response.use(
         if (error.response?.status === 401) {
             console.warn('Sesión caducada o no autorizada. Limpiando almacenamiento...');
             try {
-                // We use dynamic imports to avoid circular dependencies if any
                 const { storageAdapter } = await import('./storageAdapter');
                 const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
+                const { Alert } = await import('react-native');
 
                 await storageAdapter.deleteItem('userToken');
                 await AsyncStorage.removeItem('userData');
 
-                // Note: The UI will react to this if it uses useAuth and we trigger a state update
-                // or just redirect on next app start / route change.
+                Alert.alert(
+                    'Sesión Expirada',
+                    'Tu sesión ha caducado. Por favor, inicia sesión de nuevo.',
+                    [{ text: 'OK' }]
+                );
             } catch (e) {
                 console.error('Error clearing session on 401', e);
             }

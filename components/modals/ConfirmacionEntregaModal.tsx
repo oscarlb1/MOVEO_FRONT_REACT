@@ -70,7 +70,7 @@ export default function ConfirmacionEntregaModal({
                                     longitudeDelta: 0.005,
                                 }}
                             >
-                                {clienteCoords?.latitud && (
+                                {clienteCoords?.latitud !== undefined && clienteCoords?.longitud !== undefined && (
                                     <Marker
                                         coordinate={{ latitude: clienteCoords.latitud, longitude: clienteCoords.longitud }}
                                         title="Punto de Entrega"
