@@ -1,12 +1,17 @@
 import axios from 'axios';
 import Constants from 'expo-constants';
+import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import { storageAdapter } from './storageAdapter';
 
 // Dynamic API URL determination
 const getApiUrl = () => {
     if (Platform.OS === 'web') return 'http://localhost:5079/api/';
-    if (Platform.OS === 'android') return 'http://10.0.2.2:5079/api/';
+
+    // Android Emulator specific configuration
+    if (Platform.OS === 'android' && !Device.isDevice) {
+        return 'http://10.0.2.2:5079/api/';
+    }
 
     // dynamic IP for physical devices (development)
     const debuggerHost = Constants.expoConfig?.hostUri;
@@ -16,8 +21,8 @@ const getApiUrl = () => {
         return `http://${localhost}:5079/api/`;
     }
 
-    // Fallback
-    return 'http://localhost:5079/api/';
+    // Fallback (Physical Android & iOS devices)
+    return 'http://172.17.21.174:5079/api/';
 };
 
 export const API_URL = getApiUrl();
