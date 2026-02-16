@@ -1,3 +1,4 @@
+import { notificacionService } from '@/services/notificacionService';
 import { EstadisticaHoy, statsService } from '@/services/statsService';
 import { useAuth } from '@/store/authStore';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -5,6 +6,7 @@ import { useRouter } from 'expo-router';
 import { Bell, Calendar, LogOut, MapPin, Package, RefreshCw, Truck, User } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, RefreshControl, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import NotificacionesModal from '../modals/NotificacionesModal';
 
 export default function DashboardScreen() {
     // ... rest of the component
@@ -13,16 +15,31 @@ export default function DashboardScreen() {
     const [stats, setStats] = useState<EstadisticaHoy | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const [notifModalVisible, setNotifModalVisible] = useState(false);
 
     const fetchStats = async () => {
         try {
-            const data = await statsService.getMisEstadisticasHoy();
-            setStats(data);
+            const [statsData, count] = await Promise.all([
+                statsService.getMisEstadisticasHoy(),
+                notificacionService.getUnreadCount()
+            ]);
+            setStats(statsData);
+            setUnreadCount(count);
         } catch (error) {
-            console.error('Error fetching dashboard stats', error);
+            console.error('Error fetching dashboard data', error);
         } finally {
             setLoading(false);
             setRefreshing(false);
+        }
+    };
+
+    const fetchUnreadCount = async () => {
+        try {
+            const count = await notificacionService.getUnreadCount();
+            setUnreadCount(count);
+        } catch (error) {
+            console.error('Error fetching unread count', error);
         }
     };
 
@@ -60,9 +77,18 @@ export default function DashboardScreen() {
                         <Text style={styles.userNameText}>{user?.nombre || 'Repartidor'}</Text>
                     </View>
                     <View style={styles.headerActions}>
-                        <TouchableOpacity style={styles.headerIconButton}>
+                        <TouchableOpacity
+                            style={styles.headerIconButton}
+                            onPress={() => setNotifModalVisible(true)}
+                        >
                             <Bell color="white" size={22} />
-                            <View style={styles.notificationBadge} />
+                            {unreadCount > 0 && (
+                                <View style={styles.notificationBadge}>
+                                    <Text style={styles.badgeText}>
+                                        {unreadCount > 9 ? '9+' : unreadCount}
+                                    </Text>
+                                </View>
+                            )}
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={styles.profileIcon}
@@ -143,6 +169,12 @@ export default function DashboardScreen() {
                 </TouchableOpacity>
                 <Text style={styles.versionText}>Moveo Logistics v2.0.4</Text>
             </ScrollView>
+
+            <NotificacionesModal
+                visible={notifModalVisible}
+                onClose={() => setNotifModalVisible(false)}
+                onRefreshCount={fetchUnreadCount}
+            />
         </SafeAreaView>
     );
 }
@@ -180,14 +212,22 @@ const styles = StyleSheet.create({
     },
     notificationBadge: {
         position: 'absolute',
-        top: 12,
-        right: 12,
-        width: 8,
-        height: 8,
-        borderRadius: 4,
+        top: -6,
+        right: -6,
+        minWidth: 18,
+        height: 18,
+        borderRadius: 9,
         backgroundColor: '#E67E50',
-        borderWidth: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 4,
+        borderWidth: 1.5,
         borderColor: '#092C4C',
+    },
+    badgeText: {
+        color: 'white',
+        fontSize: 10,
+        fontWeight: '800',
     },
     welcomeText: {
         fontSize: 14,
