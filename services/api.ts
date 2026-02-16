@@ -4,8 +4,18 @@ import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import { storageAdapter } from './storageAdapter';
 
+// --- CONFIGURATION ---
+// If you are using ngrok, paste the URL here (e.g., 'https://xxxx.ngrok-free.app')
+const NGROK_URL: string = 'https://distinguishably-busiest-brayan.ngrok-free.dev';
+// ---------------------
+
 // Dynamic API URL determination
 const getApiUrl = () => {
+    // Priority 1: Manual Ngrok URL
+    if (NGROK_URL) {
+        return NGROK_URL.endsWith('/') ? `${NGROK_URL}api/` : `${NGROK_URL}/api/`;
+    }
+
     if (Platform.OS === 'web') return 'http://localhost:5079/api/';
 
     // Android Emulator specific configuration
@@ -13,11 +23,11 @@ const getApiUrl = () => {
         return 'http://10.0.2.2:5079/api/';
     }
 
-    // dynamic IP for physical devices (development)
+    // dynamic IP for physical devices (development in same Wi-Fi)
     const debuggerHost = Constants.expoConfig?.hostUri;
     const localhost = debuggerHost?.split(':')[0];
 
-    if (localhost) {
+    if (localhost && !localhost.includes('exp.direct')) {
         return `http://${localhost}:5079/api/`;
     }
 
