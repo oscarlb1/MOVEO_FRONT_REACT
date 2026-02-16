@@ -1,4 +1,5 @@
 import api from './api';
+import { Entrega } from './rutaService';
 
 export interface ActualizarEstadoEntregaDto {
     Estado: string;
@@ -17,5 +18,11 @@ export const entregaService = {
             console.error('Error updating delivery status', error);
             return false;
         }
+    },
+
+    // Get delivery details
+    async getEntregaById(id: number): Promise<Entrega> {
+        const response = await api.get<Entrega>(`Entregas/${id}`);
+        return response.data;
     }
 };

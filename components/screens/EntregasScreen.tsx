@@ -73,7 +73,7 @@ export default function EntregasScreen() {
             <TouchableOpacity
                 style={styles.card}
                 activeOpacity={0.7}
-                onPress={() => handleOpenMaps(item.cliente.direccion)}
+                onPress={() => router.push(`/entrega/${item.id}`)}
             >
                 <View style={styles.cardHeader}>
                     <View style={styles.iconBox}>
