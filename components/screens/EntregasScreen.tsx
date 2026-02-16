@@ -1,7 +1,7 @@
 import { WebColors } from '@/constants/theme';
 import { Entrega, rutaService } from '@/services/rutaService';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, MapPin, Package, Search } from 'lucide-react-native';
+import { MapPin, Package, Search } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Linking, RefreshControl, SafeAreaView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
@@ -109,9 +109,6 @@ export default function EntregasScreen() {
 
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <ArrowLeft color="white" size={24} />
-                </TouchableOpacity>
                 <Text style={styles.title}>Mis Entregas</Text>
             </View>
 
@@ -162,9 +159,9 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
         paddingHorizontal: 20,
         paddingVertical: 15,
-        gap: 15,
     },
     backButton: {
         width: 44,

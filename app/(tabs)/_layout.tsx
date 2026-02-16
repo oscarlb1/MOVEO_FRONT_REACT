@@ -30,11 +30,11 @@ export default function TabLayout() {
                 name="entregas"
                 options={{
                     title: 'Entregas',
-                    tabBarIcon: ({ color }) => <Package size={28} color={color} />, // Increased icon size
+                    tabBarIcon: ({ color }) => <Package size={28} color={color} />,
                 }}
             />
             <Tabs.Screen
-                name="mis-rutas"
+                name="rutas"
                 options={{
                     title: 'Rutas',
                     tabBarIcon: ({ color }) => <MapPin size={28} color={color} />,

@@ -1,11 +1,12 @@
 import { WebColors } from '@/constants/theme';
 import api from '@/services/api';
 import { useAuth } from '@/store/authStore';
+import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { ArrowLeft, Camera, LogOut, Mail, Phone, Save, Settings as SettingsIcon, User } from 'lucide-react-native';
+import { Camera, LogOut, Mail, Phone, Save, Settings as SettingsIcon, User } from 'lucide-react-native';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const theme = WebColors.dark;
@@ -17,6 +18,26 @@ export default function SettingsScreen() {
     const [email, setEmail] = useState(user?.email || '');
     const [telefono, setTelefono] = useState(user?.telefono || '');
     const [isSaving, setIsSaving] = useState(false);
+    const [image, setImage] = useState<string | null>(null);
+
+    const pickImage = async () => {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+            Alert.alert('Permiso denegado', 'Se necesita acceso a la galería para cambiar la foto.');
+            return;
+        }
+
+        const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ['images'],
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 1,
+        });
+
+        if (!result.canceled) {
+            setImage(result.assets[0].uri);
+        }
+    };
 
     const handleSave = async () => {
         if (!nombre || !email) {
@@ -47,11 +68,7 @@ export default function SettingsScreen() {
 
             {/* Header */}
             <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <ArrowLeft color="white" size={24} />
-                </TouchableOpacity>
                 <Text style={styles.title}>Mi Perfil</Text>
-                <View style={{ width: 44 }} />
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
@@ -61,9 +78,13 @@ export default function SettingsScreen() {
                             colors={[theme.primary, theme.primary]}
                             style={styles.avatar}
                         >
-                            <User color="white" size={48} />
+                            {image ? (
+                                <Image source={{ uri: image }} style={styles.avatarImage} />
+                            ) : (
+                                <User color="white" size={48} />
+                            )}
                         </LinearGradient>
-                        <TouchableOpacity style={styles.cameraButton}>
+                        <TouchableOpacity style={styles.cameraButton} onPress={pickImage}>
                             <Camera color="white" size={18} />
                         </TouchableOpacity>
                     </View>
@@ -160,7 +181,7 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
         paddingHorizontal: 24,
         paddingVertical: 20,
     },
@@ -194,6 +215,11 @@ const styles = StyleSheet.create({
         borderRadius: 40,
         justifyContent: 'center',
         alignItems: 'center',
+        overflow: 'hidden',
+    },
+    avatarImage: {
+        width: '100%',
+        height: '100%',
     },
     cameraButton: {
         position: 'absolute',

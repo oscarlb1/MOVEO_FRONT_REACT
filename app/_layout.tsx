@@ -20,7 +20,7 @@ function RootLayoutNav() {
       router.replace('/');
     } else if (user && firstSegment === undefined) {
       // Redirect to dashboard if signed in and at root
-      router.replace('/dashboard' as any);
+      router.replace('/(tabs)/entregas' as any);
     }
   }, [user, isLoading, segments]);
 
