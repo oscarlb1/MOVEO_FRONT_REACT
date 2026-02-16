@@ -3,9 +3,9 @@ import { notificacionService } from '@/services/notificacionService';
 import { EstadisticaHoy, statsService } from '@/services/statsService';
 import { useAuth } from '@/store/authStore';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { Bell, Calendar, ChevronRight, LogOut, MapPin, Package, RefreshCw, Truck, User } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import NotificacionesModal from '../modals/NotificacionesModal';
@@ -46,14 +46,18 @@ export default function DashboardScreen() {
         }
     };
 
-    useEffect(() => {
-        fetchStats();
-    }, []);
+    // ... inside component ...
 
     const onRefresh = () => {
         setRefreshing(true);
         fetchStats();
     };
+
+    useFocusEffect(
+        useCallback(() => {
+            fetchStats();
+        }, [])
+    );
 
     const menuItems = [
         { title: 'Mis Entregas', icon: Package, color: theme.primary, subtitle: stats ? `${stats.entregasTotales} asignadas` : 'Cargando...', onPress: () => router.push('/entregas' as any) },
