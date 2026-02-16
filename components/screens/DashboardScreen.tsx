@@ -1,4 +1,5 @@
 import { WebColors } from '@/constants/theme';
+import { notificacionService } from '@/services/notificacionService';
 import { EstadisticaHoy, statsService } from '@/services/statsService';
 import { useAuth } from '@/store/authStore';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -7,6 +8,7 @@ import { Bell, Calendar, ChevronRight, LogOut, MapPin, Package, RefreshCw, Truck
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, RefreshControl, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import NotificacionesModal from '../modals/NotificacionesModal';
 
 const theme = WebColors.dark;
 
@@ -16,16 +18,31 @@ export default function DashboardScreen() {
     const [stats, setStats] = useState<EstadisticaHoy | null>(null);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const [unreadCount, setUnreadCount] = useState(0);
+    const [notifModalVisible, setNotifModalVisible] = useState(false);
 
     const fetchStats = async () => {
         try {
-            const data = await statsService.getMisEstadisticasHoy();
-            setStats(data);
+            const [statsData, count] = await Promise.all([
+                statsService.getMisEstadisticasHoy(),
+                notificacionService.getUnreadCount()
+            ]);
+            setStats(statsData);
+            setUnreadCount(count);
         } catch (error) {
-            console.error('Error fetching dashboard stats', error);
+            console.error('Error fetching dashboard data', error);
         } finally {
             setLoading(false);
             setRefreshing(false);
+        }
+    };
+
+    const fetchUnreadCount = async () => {
+        try {
+            const count = await notificacionService.getUnreadCount();
+            setUnreadCount(count);
+        } catch (error) {
+            console.error('Error fetching unread count', error);
         }
     };
 
@@ -39,9 +56,9 @@ export default function DashboardScreen() {
     };
 
     const menuItems = [
-        { title: 'Mis Entregas', icon: Package, color: theme.primary, subtitle: stats ? `${stats.entregasTotales} asignadas` : 'Cargando...', onPress: () => router.push('/entregas' as any) },
-        { title: 'Mis Rutas', icon: MapPin, color: theme.primary, subtitle: 'Ver ruta de hoy', onPress: () => router.push('/rutas' as any) },
-        { title: 'Mi Vehículo', icon: Truck, color: theme.primary, subtitle: 'Estado: Óptimo' },
+        { title: 'Entregas', icon: Package, color: theme.primary, subtitle: stats ? `${stats.entregasTotales} asignadas` : 'Cargando...', onPress: () => router.push('/entregas' as any) },
+        { title: 'Rutas', icon: MapPin, color: theme.primary, subtitle: 'Ver ruta de hoy', onPress: () => router.push('/rutas' as any) },
+        { title: 'Vehículo', icon: Truck, color: theme.primary, subtitle: 'Estado: Óptimo' },
         { title: 'Mi Perfil', icon: User, color: theme.primary, subtitle: 'Configurar cuenta', onPress: () => router.push('/settings' as any) },
     ];
 
@@ -63,9 +80,18 @@ export default function DashboardScreen() {
                         <Text style={styles.userNameText}>{user?.nombre || 'Conductor'}</Text>
                     </View>
                     <View style={styles.headerActions}>
-                        <TouchableOpacity style={styles.headerIconButton}>
-                            <Bell color={theme.text} size={20} />
-                            <View style={styles.notificationBadge} />
+                        <TouchableOpacity
+                            style={styles.headerIconButton}
+                            onPress={() => setNotifModalVisible(true)}
+                        >
+                            <Bell color="white" size={22} />
+                            {unreadCount > 0 && (
+                                <View style={styles.notificationBadge}>
+                                    <Text style={styles.badgeText}>
+                                        {unreadCount > 9 ? '9+' : unreadCount}
+                                    </Text>
+                                </View>
+                            )}
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={styles.profileIcon}
@@ -141,6 +167,12 @@ export default function DashboardScreen() {
                 </TouchableOpacity>
                 <Text style={styles.versionText}>Moveo App v2.1.0</Text>
             </ScrollView>
+
+            <NotificacionesModal
+                visible={notifModalVisible}
+                onClose={() => setNotifModalVisible(false)}
+                onRefreshCount={fetchUnreadCount}
+            />
         </SafeAreaView>
     );
 }
@@ -178,14 +210,22 @@ const styles = StyleSheet.create({
     },
     notificationBadge: {
         position: 'absolute',
-        top: 10,
-        right: 10,
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: theme.primary,
-        borderWidth: 2,
-        borderColor: theme.card,
+        top: -6,
+        right: -6,
+        minWidth: 18,
+        height: 18,
+        borderRadius: 9,
+        backgroundColor: '#E67E50',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 4,
+        borderWidth: 1.5,
+        borderColor: '#092C4C',
+    },
+    badgeText: {
+        color: 'white',
+        fontSize: 10,
+        fontWeight: '800',
     },
     welcomeText: {
         fontSize: 14,

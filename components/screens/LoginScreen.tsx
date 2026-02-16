@@ -115,7 +115,7 @@ export default function LoginScreen() {
                             <ActivityIndicator color="white" />
                         ) : (
                             <>
-                                <Text style={styles.loginButtonText}>ACCERDER</Text>
+                                <Text style={styles.loginButtonText}>ACCEDER</Text>
                                 <ArrowRight color="white" size={20} />
                             </>
                         )}
