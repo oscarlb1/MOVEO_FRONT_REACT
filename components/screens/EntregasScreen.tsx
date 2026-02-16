@@ -1,11 +1,14 @@
+import { WebColors } from '@/constants/theme';
 import { Entrega, rutaService } from '@/services/rutaService';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, MapPin, Package, Search } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Linking, RefreshControl, SafeAreaView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
+const theme = WebColors.dark;
+
 export default function EntregasScreen() {
-    // ... (rest of states remain same)
+    // ... rest of the component
     const [entregas, setEntregas] = useState<Entrega[]>([]);
     const [filteredEntregas, setFilteredEntregas] = useState<Entrega[]>([]);
     const [loading, setLoading] = useState(true);
@@ -22,7 +25,6 @@ export default function EntregasScreen() {
     };
 
     const fetchData = async () => {
-        // ... (fetchData implementation remains same)
         try {
             const rutas = await rutaService.getMisRutas();
             const allEntregas: Entrega[] = [];
@@ -75,7 +77,7 @@ export default function EntregasScreen() {
             >
                 <View style={styles.cardHeader}>
                     <View style={styles.iconBox}>
-                        <Package color="#E67E50" size={20} />
+                        <Package color={theme.primary} size={20} />
                     </View>
                     <View style={[styles.statusBadge,
                     item.estado === 'ENTREGADO' ? styles.statusSuccess :
@@ -87,7 +89,7 @@ export default function EntregasScreen() {
                 <Text style={styles.clientName}>{item.cliente.nombreEmpresa}</Text>
 
                 <View style={styles.addressRow}>
-                    <MapPin size={14} color="rgba(255, 255, 255, 0.4)" />
+                    <MapPin size={14} color={theme.textSecondary} />
                     <Text style={styles.addressText}>{item.cliente.direccion}</Text>
                 </View>
 
@@ -103,7 +105,7 @@ export default function EntregasScreen() {
 
     return (
         <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" />
+            <StatusBar barStyle="light-content" backgroundColor={theme.background} />
 
             {/* Header */}
             <View style={styles.header}>
@@ -116,11 +118,11 @@ export default function EntregasScreen() {
             {/* Search Bar */}
             <View style={styles.searchContainer}>
                 <View style={styles.searchInputWrapper}>
-                    <Search color="rgba(255, 255, 255, 0.3)" size={20} style={styles.searchIcon} />
+                    <Search color={theme.textSecondary} size={20} style={styles.searchIcon} />
                     <TextInput
                         style={styles.searchInput}
                         placeholder="Buscar por cliente o dirección..."
-                        placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                        placeholderTextColor={theme.textSecondary}
                         value={searchQuery}
                         onChangeText={setSearchQuery}
                     />
@@ -129,7 +131,7 @@ export default function EntregasScreen() {
 
             {loading ? (
                 <View style={styles.loader}>
-                    <ActivityIndicator size="large" color="#E67E50" />
+                    <ActivityIndicator size="large" color={theme.primary} />
                 </View>
             ) : (
                 <FlatList
@@ -138,11 +140,11 @@ export default function EntregasScreen() {
                     keyExtractor={(item) => item.id.toString()}
                     contentContainerStyle={styles.listContent}
                     refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#E67E50" />
+                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />
                     }
                     ListEmptyComponent={
                         <View style={styles.emptyContainer}>
-                            <Package size={48} color="rgba(255, 255, 255, 0.1)" />
+                            <Package size={48} color={theme.cardBorder} />
                             <Text style={styles.emptyText}>No se encontraron entregas</Text>
                         </View>
                     }
@@ -155,7 +157,7 @@ export default function EntregasScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#092C4C',
+        backgroundColor: theme.background,
     },
     header: {
         flexDirection: 'row',
@@ -165,12 +167,17 @@ const styles = StyleSheet.create({
         gap: 15,
     },
     backButton: {
-        padding: 5,
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        backgroundColor: theme.card,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     title: {
         fontSize: 20,
         fontWeight: '800',
-        color: 'white',
+        color: theme.text,
     },
     searchContainer: {
         paddingHorizontal: 20,
@@ -179,19 +186,20 @@ const styles = StyleSheet.create({
     searchInputWrapper: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        backgroundColor: theme.card,
         borderRadius: 15,
         paddingHorizontal: 15,
-        height: 50,
+        height: 52,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: theme.cardBorder,
     },
     searchIcon: {
         marginRight: 10,
+        opacity: 0.5,
     },
     searchInput: {
         flex: 1,
-        color: 'white',
+        color: theme.text,
         fontSize: 15,
     },
     listContent: {
@@ -199,12 +207,12 @@ const styles = StyleSheet.create({
         paddingBottom: 40,
     },
     card: {
-        backgroundColor: 'rgba(255, 255, 255, 0.04)',
+        backgroundColor: theme.card,
         borderRadius: 20,
         padding: 16,
         marginBottom: 16,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.08)',
+        borderColor: theme.cardBorder,
     },
     cardHeader: {
         flexDirection: 'row',
@@ -216,7 +224,7 @@ const styles = StyleSheet.create({
         width: 36,
         height: 36,
         borderRadius: 10,
-        backgroundColor: 'rgba(230, 126, 80, 0.1)',
+        backgroundColor: `${theme.primary}15`,
         justifyContent: 'center',
         alignItems: 'center',
     },
@@ -231,24 +239,24 @@ const styles = StyleSheet.create({
         textTransform: 'uppercase',
     },
     statusSuccess: {
-        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+        backgroundColor: `${theme.success}15`,
         borderWidth: 1,
-        borderColor: 'rgba(16, 185, 129, 0.2)',
+        borderColor: `${theme.success}25`,
     },
     statusError: {
-        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+        backgroundColor: `${theme.danger}15`,
         borderWidth: 1,
-        borderColor: 'rgba(239, 68, 68, 0.2)',
+        borderColor: `${theme.danger}25`,
     },
     statusPending: {
         backgroundColor: 'rgba(255, 255, 255, 0.05)',
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: theme.cardBorder,
     },
     clientName: {
         fontSize: 17,
         fontWeight: '700',
-        color: 'white',
+        color: theme.text,
         marginBottom: 8,
     },
     addressRow: {
@@ -259,12 +267,12 @@ const styles = StyleSheet.create({
     },
     addressText: {
         fontSize: 13,
-        color: 'rgba(255, 255, 255, 0.4)',
+        color: theme.textSecondary,
         flex: 1,
     },
     footer: {
         borderTopWidth: 1,
-        borderTopColor: 'rgba(255, 255, 255, 0.05)',
+        borderTopColor: theme.cardBorder,
         paddingTop: 12,
     },
     footerContent: {
@@ -275,11 +283,12 @@ const styles = StyleSheet.create({
     stopText: {
         fontSize: 12,
         fontWeight: '600',
-        color: '#E67E50',
+        color: theme.primary,
     },
     mapHint: {
         fontSize: 11,
-        color: 'rgba(255, 255, 255, 0.2)',
+        color: theme.textSecondary,
+        opacity: 0.5,
         fontStyle: 'italic',
     },
     loader: {
@@ -293,7 +302,7 @@ const styles = StyleSheet.create({
         gap: 16,
     },
     emptyText: {
-        color: 'rgba(255, 255, 255, 0.3)',
+        color: theme.textSecondary,
         fontSize: 16,
         fontWeight: '600',
     },

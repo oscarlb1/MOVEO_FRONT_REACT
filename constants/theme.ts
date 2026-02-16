@@ -34,7 +34,7 @@ export const Colors = {
 
 export const WebColors = {
   dark: {
-    background: '#0a0f1a', // Rich Black/Blue (Web Body)
+    background: '#092C4C', // Rich Black/Blue (Web Body)
     card: '#1a2332',       // Dark Slate (Web Cards)
     cardBorder: '#2a3441', // Subtle Border
     text: '#ffffff',

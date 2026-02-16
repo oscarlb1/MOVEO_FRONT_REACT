@@ -1,3 +1,4 @@
+import { WebColors } from '@/constants/theme';
 import api from '@/services/api';
 import { useAuth } from '@/store/authStore';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -6,6 +7,8 @@ import { ArrowLeft, Camera, LogOut, Mail, Phone, Save, Settings as SettingsIcon,
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+const theme = WebColors.dark;
 
 export default function SettingsScreen() {
     const { user, logout, updateUser } = useAuth();
@@ -23,7 +26,6 @@ export default function SettingsScreen() {
 
         setIsSaving(true);
         try {
-            // Updated to use the api service
             await api.put('Usuarios/me', {
                 nombre,
                 telefono,
@@ -41,7 +43,7 @@ export default function SettingsScreen() {
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
-            <StatusBar barStyle="light-content" />
+            <StatusBar barStyle="light-content" backgroundColor={theme.background} />
 
             {/* Header */}
             <View style={styles.header}>
@@ -56,7 +58,7 @@ export default function SettingsScreen() {
                 <View style={styles.profileHeader}>
                     <View style={styles.avatarWrapper}>
                         <LinearGradient
-                            colors={['#E67E50', '#D35400']}
+                            colors={[theme.primary, theme.primary]}
                             style={styles.avatar}
                         >
                             <User color="white" size={48} />
@@ -77,13 +79,13 @@ export default function SettingsScreen() {
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Nombre Completo</Text>
                         <View style={styles.inputWrapper}>
-                            <User color="#E67E50" size={20} style={styles.icon} />
+                            <User color={theme.primary} size={20} style={styles.icon} />
                             <TextInput
                                 style={styles.input}
                                 value={nombre}
                                 onChangeText={setNombre}
                                 placeholder="Tu nombre"
-                                placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                                placeholderTextColor={theme.textSecondary}
                             />
                         </View>
                     </View>
@@ -91,13 +93,13 @@ export default function SettingsScreen() {
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Correo Electrónico</Text>
                         <View style={[styles.inputWrapper, styles.disabledInput]}>
-                            <Mail color="rgba(255, 255, 255, 0.3)" size={20} style={styles.icon} />
+                            <Mail color={theme.textSecondary} size={20} style={styles.icon} />
                             <TextInput
                                 style={[styles.input, styles.disabledText]}
                                 value={email}
                                 editable={false}
                                 placeholder="tu@email.com"
-                                placeholderTextColor="rgba(255, 255, 255, 0.2)"
+                                placeholderTextColor={theme.textSecondary}
                             />
                         </View>
                     </View>
@@ -105,14 +107,14 @@ export default function SettingsScreen() {
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Teléfono</Text>
                         <View style={styles.inputWrapper}>
-                            <Phone color="#E67E50" size={20} style={styles.icon} />
+                            <Phone color={theme.primary} size={20} style={styles.icon} />
                             <TextInput
                                 style={styles.input}
                                 value={telefono}
                                 onChangeText={setTelefono}
                                 placeholder="+34 600 000 000"
                                 keyboardType="phone-pad"
-                                placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                                placeholderTextColor={theme.textSecondary}
                             />
                         </View>
                     </View>
@@ -134,15 +136,15 @@ export default function SettingsScreen() {
                 </View>
 
                 <View style={styles.dangerZone}>
-                    <Text style={[styles.sectionLabel, { color: '#FF5252' }]}>Acciones de Cuenta</Text>
+                    <Text style={[styles.sectionLabel, { color: theme.danger }]}>Acciones de Cuenta</Text>
                     <TouchableOpacity style={styles.logoutButton} onPress={logout}>
-                        <LogOut color="#FF5252" size={20} />
+                        <LogOut color={theme.danger} size={20} />
                         <Text style={styles.logoutButtonText}>Cerrar Sesión Activa</Text>
                     </TouchableOpacity>
                 </View>
 
                 <View style={styles.footer}>
-                    <SettingsIcon color="rgba(255, 255, 255, 0.1)" size={40} />
+                    <SettingsIcon color={theme.cardBorder} size={40} />
                     <Text style={styles.footerText}>Moveo Logistics v2.0</Text>
                 </View>
             </ScrollView>
@@ -153,7 +155,7 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#092C4C',
+        backgroundColor: theme.background,
     },
     header: {
         flexDirection: 'row',
@@ -165,17 +167,17 @@ const styles = StyleSheet.create({
     backButton: {
         width: 44,
         height: 44,
-        borderRadius: 15,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: 12,
+        backgroundColor: theme.card,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: theme.cardBorder,
     },
     title: {
         fontSize: 20,
         fontWeight: '800',
-        color: 'white',
+        color: theme.text,
     },
     profileHeader: {
         alignItems: 'center',
@@ -192,11 +194,6 @@ const styles = StyleSheet.create({
         borderRadius: 40,
         justifyContent: 'center',
         alignItems: 'center',
-        shadowColor: '#E67E50',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.3,
-        shadowRadius: 15,
-        elevation: 8,
     },
     cameraButton: {
         position: 'absolute',
@@ -205,28 +202,28 @@ const styles = StyleSheet.create({
         width: 38,
         height: 38,
         borderRadius: 15,
-        backgroundColor: '#092C4C',
+        backgroundColor: theme.background,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 3,
-        borderColor: '#092C4C',
+        borderColor: theme.background,
     },
     userName: {
         fontSize: 24,
         fontWeight: '800',
-        color: 'white',
+        color: theme.text,
     },
     roleBadge: {
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        backgroundColor: `${theme.primary}15`,
         paddingHorizontal: 12,
         paddingVertical: 4,
         borderRadius: 10,
         marginTop: 8,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.08)',
+        borderColor: `${theme.primary}20`,
     },
     roleText: {
-        color: 'rgba(255, 255, 255, 0.5)',
+        color: theme.primary,
         fontSize: 12,
         fontWeight: '700',
         letterSpacing: 1,
@@ -237,7 +234,7 @@ const styles = StyleSheet.create({
     sectionLabel: {
         fontSize: 14,
         fontWeight: '700',
-        color: 'rgba(255, 255, 255, 0.4)',
+        color: theme.textSecondary,
         textTransform: 'uppercase',
         letterSpacing: 1,
         marginBottom: 20,
@@ -246,7 +243,7 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     label: {
-        color: 'white',
+        color: theme.text,
         fontSize: 14,
         marginBottom: 8,
         fontWeight: '600',
@@ -255,31 +252,31 @@ const styles = StyleSheet.create({
     inputWrapper: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.04)',
+        backgroundColor: theme.card,
         borderRadius: 15,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.08)',
+        borderColor: theme.cardBorder,
         height: 56,
         paddingHorizontal: 16,
     },
     disabledInput: {
+        opacity: 0.6,
         backgroundColor: 'rgba(255, 255, 255, 0.02)',
-        borderColor: 'transparent',
     },
     disabledText: {
-        color: 'rgba(255, 255, 255, 0.3)',
+        color: theme.textSecondary,
     },
     icon: {
         marginRight: 12,
     },
     input: {
         flex: 1,
-        color: 'white',
+        color: theme.text,
         fontSize: 16,
         fontWeight: '500',
     },
     saveButton: {
-        backgroundColor: '#E67E50',
+        backgroundColor: theme.primary,
         height: 56,
         borderRadius: 15,
         flexDirection: 'row',
@@ -287,11 +284,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginTop: 10,
         gap: 12,
-        shadowColor: '#E67E50',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.2,
-        shadowRadius: 10,
-        elevation: 5,
     },
     buttonDisabled: {
         opacity: 0.7,
@@ -313,12 +305,12 @@ const styles = StyleSheet.create({
         height: 56,
         borderRadius: 15,
         borderWidth: 1,
-        borderColor: 'rgba(255, 82, 82, 0.2)',
-        backgroundColor: 'rgba(255, 82, 82, 0.05)',
+        borderColor: `${theme.danger}20`,
+        backgroundColor: `${theme.danger}05`,
         gap: 12,
     },
     logoutButtonText: {
-        color: '#FF5252',
+        color: theme.danger,
         fontSize: 15,
         fontWeight: '700',
     },
@@ -329,7 +321,7 @@ const styles = StyleSheet.create({
         opacity: 0.5,
     },
     footerText: {
-        color: 'rgba(255, 255, 255, 0.3)',
+        color: theme.textSecondary,
         fontSize: 12,
         marginTop: 10,
         fontWeight: '600',

@@ -56,9 +56,9 @@ export default function DashboardScreen() {
     };
 
     const menuItems = [
-        { title: 'Entregas', icon: Package, color: theme.primary, subtitle: stats ? `${stats.entregasTotales} asignadas` : 'Cargando...', onPress: () => router.push('/entregas' as any) },
-        { title: 'Rutas', icon: MapPin, color: theme.primary, subtitle: 'Ver ruta de hoy', onPress: () => router.push('/rutas' as any) },
-        { title: 'Vehículo', icon: Truck, color: theme.primary, subtitle: 'Estado: Óptimo' },
+        { title: 'Mis Entregas', icon: Package, color: theme.primary, subtitle: stats ? `${stats.entregasTotales} asignadas` : 'Cargando...', onPress: () => router.push('/entregas' as any) },
+        { title: 'Mis Rutas', icon: MapPin, color: theme.primary, subtitle: 'Ver ruta de hoy', onPress: () => router.push('/rutas' as any) },
+        { title: 'Mi Vehículo', icon: Truck, color: theme.primary, subtitle: 'Estado: Óptimo', onPress: () => { } },
         { title: 'Mi Perfil', icon: User, color: theme.primary, subtitle: 'Configurar cuenta', onPress: () => router.push('/settings' as any) },
     ];
 
@@ -76,15 +76,15 @@ export default function DashboardScreen() {
                 {/* Header */}
                 <View style={styles.header}>
                     <View>
-                        <Text style={styles.welcomeText}>Hola,</Text>
-                        <Text style={styles.userNameText}>{user?.nombre || 'Conductor'}</Text>
+                        <Text style={styles.welcomeText}>Panel de Control</Text>
+                        <Text style={styles.userNameText}>{user?.nombre || 'Repartidor'}</Text>
                     </View>
                     <View style={styles.headerActions}>
                         <TouchableOpacity
                             style={styles.headerIconButton}
                             onPress={() => setNotifModalVisible(true)}
                         >
-                            <Bell color="white" size={22} />
+                            <Bell color={theme.text} size={20} />
                             {unreadCount > 0 && (
                                 <View style={styles.notificationBadge}>
                                     <Text style={styles.badgeText}>
@@ -104,7 +104,7 @@ export default function DashboardScreen() {
 
                 {/* Main Stats Card */}
                 <LinearGradient
-                    colors={[theme.card, theme.card]} // Solid for now, or subtle gradient
+                    colors={[theme.card, theme.card]}
                     style={styles.statsCard}
                 >
                     <View style={styles.statsHeader}>

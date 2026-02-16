@@ -34,7 +34,7 @@ export default function TabLayout() {
                 }}
             />
             <Tabs.Screen
-                name="rutas"
+                name="mis-rutas"
                 options={{
                     title: 'Rutas',
                     tabBarIcon: ({ color }) => <MapPin size={28} color={color} />,

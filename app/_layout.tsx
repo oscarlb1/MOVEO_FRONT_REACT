@@ -13,14 +13,14 @@ function RootLayoutNav() {
     if (isLoading) return;
 
     const firstSegment = segments[0] as string;
-    const inAuthenticatedGroup = ['dashboard', 'settings', 'rutas'].includes(firstSegment);
+    const inAuthenticatedGroup = ['dashboard', 'settings', 'rutas', '(tabs)'].includes(firstSegment);
 
     if (!user && inAuthenticatedGroup) {
       // Redirect to the sign-in page if the user is not signed in
       router.replace('/');
     } else if (user && firstSegment === undefined) {
       // Redirect to dashboard if signed in and at root
-      router.replace('/(tabs)/entregas' as any);
+      router.replace('/dashboard' as any);
     }
   }, [user, isLoading, segments]);
 

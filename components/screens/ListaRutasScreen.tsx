@@ -1,10 +1,13 @@
 import RutaCard from '@/components/RutaCard';
+import { WebColors } from '@/constants/theme';
 import { Ruta, rutaService } from '@/services/rutaService';
 import { useRouter } from 'expo-router';
 import { ArrowLeft, RefreshCw, Search } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+const theme = WebColors.dark;
 
 export default function ListaRutasScreen() {
     const router = useRouter();
@@ -38,7 +41,7 @@ export default function ListaRutasScreen() {
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
-            <StatusBar barStyle="light-content" />
+            <StatusBar barStyle="light-content" backgroundColor={theme.background} />
 
             {/* Header */}
             <View style={styles.header}>
@@ -54,13 +57,13 @@ export default function ListaRutasScreen() {
                 </TouchableOpacity>
             </View>
 
-            {/* Search Bar Placeholder (Visual only for now) */}
+            {/* Search Bar */}
             <View style={styles.searchContainer}>
                 <View style={styles.searchWrapper}>
-                    <Search color="rgba(255, 255, 255, 0.3)" size={20} />
+                    <Search color={theme.textSecondary} size={20} />
                     <TextInput
                         placeholder="Buscar por ID o matrícula..."
-                        placeholderTextColor="rgba(255, 255, 255, 0.3)"
+                        placeholderTextColor={theme.textSecondary}
                         style={styles.searchInput}
                     />
                 </View>
@@ -68,7 +71,7 @@ export default function ListaRutasScreen() {
 
             {loading ? (
                 <View style={styles.loader}>
-                    <ActivityIndicator size="large" color="#E67E50" />
+                    <ActivityIndicator size="large" color={theme.primary} />
                     <Text style={styles.loadingText}>Cargando rutas...</Text>
                 </View>
             ) : error ? (
@@ -96,8 +99,7 @@ export default function ListaRutasScreen() {
                         <RefreshControl
                             refreshing={refreshing}
                             onRefresh={onRefresh}
-                            tintColor="#E67E50"
-                            colors={['#E67E50']}
+                            tintColor={theme.primary}
                         />
                     }
                     ListEmptyComponent={
@@ -116,7 +118,7 @@ export default function ListaRutasScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#092C4C',
+        backgroundColor: theme.background,
     },
     header: {
         flexDirection: 'row',
@@ -128,12 +130,12 @@ const styles = StyleSheet.create({
     backButton: {
         width: 44,
         height: 44,
-        borderRadius: 15,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: 12,
+        backgroundColor: theme.card,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: theme.cardBorder,
     },
     titleContainer: {
         flex: 1,
@@ -141,11 +143,11 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 22,
         fontWeight: '800',
-        color: 'white',
+        color: theme.text,
     },
     subtitle: {
         fontSize: 12,
-        color: 'rgba(255, 255, 255, 0.4)',
+        color: theme.textSecondary,
         fontWeight: '600',
         textTransform: 'uppercase',
         marginTop: 2,
@@ -153,10 +155,12 @@ const styles = StyleSheet.create({
     headerAction: {
         width: 44,
         height: 44,
-        borderRadius: 15,
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        borderRadius: 12,
+        backgroundColor: theme.card,
         justifyContent: 'center',
         alignItems: 'center',
+        borderWidth: 1,
+        borderColor: theme.cardBorder,
     },
     searchContainer: {
         paddingHorizontal: 24,
@@ -165,17 +169,17 @@ const styles = StyleSheet.create({
     searchWrapper: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        backgroundColor: theme.card,
         borderRadius: 15,
         paddingHorizontal: 15,
-        height: 50,
+        height: 52,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.08)',
+        borderColor: theme.cardBorder,
     },
     searchInput: {
         flex: 1,
         marginLeft: 10,
-        color: 'white',
+        color: theme.text,
         fontSize: 15,
     },
     loader: {
@@ -185,7 +189,7 @@ const styles = StyleSheet.create({
         gap: 16,
     },
     loadingText: {
-        color: 'rgba(255, 255, 255, 0.5)',
+        color: theme.textSecondary,
         fontWeight: '600',
     },
     listContent: {
@@ -204,13 +208,13 @@ const styles = StyleSheet.create({
         opacity: 0.5,
     },
     emptyText: {
-        color: 'white',
+        color: theme.text,
         textAlign: 'center',
         fontSize: 18,
         fontWeight: '700',
     },
     emptySubtext: {
-        color: 'rgba(255, 255, 255, 0.4)',
+        color: theme.textSecondary,
         textAlign: 'center',
         marginTop: 10,
         fontSize: 14,
@@ -226,7 +230,7 @@ const styles = StyleSheet.create({
         width: 80,
         height: 80,
         borderRadius: 40,
-        backgroundColor: 'rgba(255, 82, 82, 0.1)',
+        backgroundColor: `${theme.danger}15`,
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 20,
@@ -235,14 +239,14 @@ const styles = StyleSheet.create({
         fontSize: 32,
     },
     errorText: {
-        color: '#FF5252',
+        color: theme.danger,
         textAlign: 'center',
         fontSize: 16,
         fontWeight: '600',
         marginBottom: 24,
     },
     retryButton: {
-        backgroundColor: '#E67E50',
+        backgroundColor: theme.primary,
         paddingHorizontal: 30,
         paddingVertical: 14,
         borderRadius: 12,

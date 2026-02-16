@@ -70,7 +70,7 @@ export default function LoginScreen() {
 
                 <BlurView intensity={30} tint="dark" style={styles.loginCard}>
                     <View style={styles.inputGroup}>
-                        <Text style={styles.label}>Usuario / Email</Text>
+                        <Text style={styles.label}>Email</Text>
                         <View style={styles.inputWrapper}>
                             <Mail color="#E67E50" size={20} style={styles.inputIcon} />
                             <TextInput
