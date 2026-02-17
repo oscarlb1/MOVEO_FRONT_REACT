@@ -1,306 +1,1082 @@
-import { WebColors } from '@/constants/theme';
-import { Entrega, rutaService } from '@/services/rutaService';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { MapPin, Package, Search } from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Linking, RefreshControl, SafeAreaView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+    AlertCircle,
+    Box,
+    Camera,
+    CheckCircle,
+    ChevronRight,
+    Clock,
+    MapPin,
+    Navigation,
+    Phone,
+    Scan,
+    Search,
+    X
+} from 'lucide-react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Dimensions,
+    Linking,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from 'react-native';
+import Animated, { useAnimatedProps, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import SignatureScreen from 'react-native-signature-canvas';
+import Svg, { Circle, Defs, Path, Stop, LinearGradient as SvgGradient, Text as SvgText } from 'react-native-svg';
 
-const theme = WebColors.dark;
+// Servicios
+import { entregaService } from '../../services/entregaService';
+import { Entrega, Ruta, rutaService } from '../../services/rutaService';
+
+const { width } = Dimensions.get('window');
+const AnimatedPath = Animated.createAnimatedComponent(Path);
+
+const COLORS = {
+    background: '#0d1d35',
+    card: '#1e2d3d',
+    cardBorder: 'rgba(255,255,255,0.1)',
+    primary: '#E67E50',
+    primaryDark: '#d66d42',
+    text: '#FFFFFF',
+    textSecondary: '#9ca3af',
+    success: '#22c55e',
+    warning: '#eab308',
+    danger: '#ef4444',
+    info: '#3b82f6',
+    accent: '#4FD1C5',
+};
 
 export default function EntregasScreen() {
-    // ... rest of the component
-    const [entregas, setEntregas] = useState<Entrega[]>([]);
-    const [filteredEntregas, setFilteredEntregas] = useState<Entrega[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
-    const [searchQuery, setSearchQuery] = useState('');
     const router = useRouter();
+    const [loading, setLoading] = useState(true);
+    const [entregas, setEntregas] = useState<Entrega[]>([]);
+    const [stats, setStats] = useState({ total: 0, completed: 0, pending: 0, failed: 0 });
+    const [rutaActiva, setRutaActiva] = useState<Ruta | null>(null);
 
-    const handleOpenMaps = (direccion: string) => {
-        const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(direccion)}`;
-        Linking.openURL(url).catch(err => {
-            console.error('Error opening maps', err);
-            Alert.alert('Error', 'No se pudo abrir el mapa');
+    // Animación del mapa
+    const pathProgress = useSharedValue(0);
+
+    // Modals state
+    const [selectedEntrega, setSelectedEntrega] = useState<Entrega | null>(null);
+    const [showDetailModal, setShowDetailModal] = useState(false);
+    const [showPODModal, setShowPODModal] = useState(false);
+    const [showFailModal, setShowFailModal] = useState(false);
+    const [showQRModal, setShowQRModal] = useState(false);
+
+    // POD state
+    const signatureRef = useRef<any>(null);
+    const [signature, setSignature] = useState<string | null>(null);
+    const [podNotes, setPodNotes] = useState('');
+
+    // Fail state
+    const [failReason, setFailReason] = useState<string | null>(null);
+    const failReasons = [
+        "Cliente ausente",
+        "Dirección incorrecta",
+        "Cliente rechazó el paquete",
+        "Acceso denegado",
+        "Horario no disponible",
+        "Otro motivo"
+    ];
+
+    useEffect(() => {
+        cargarDatos();
+        pathProgress.value = withDelay(500, withTiming(1, { duration: 2500 }));
+    }, []);
+
+    const cargarDatos = async () => {
+        try {
+            setLoading(true);
+            const rutas = await rutaService.getMisRutas();
+
+            if (rutas && rutas.length > 0) {
+                // Obtenemos la primera ruta activa (o la más reciente)
+                const rutaId = rutas[0].id;
+                const detalle = await rutaService.getRutaDetalle(rutaId);
+                setRutaActiva(detalle);
+
+                if (detalle.entregas) {
+                    // Ordenar por orden de parada
+                    const ordenadas = [...detalle.entregas].sort((a, b) => a.ordenParada - b.ordenParada);
+                    setEntregas(ordenadas);
+                    calcularEstadisticas(ordenadas);
+                }
+            } else {
+                setEntregas([]);
+                setStats({ total: 0, completed: 0, pending: 0, failed: 0 });
+            }
+        } catch (error) {
+            console.error('Error cargando entregas:', error);
+            Alert.alert('Error', 'No se pudieron cargar las entregas del servidor.');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const calcularEstadisticas = (data: Entrega[]) => {
+        setStats({
+            total: data.length,
+            completed: data.filter(e => e.estado === 'ENTREGADO').length,
+            pending: data.filter(e => e.estado !== 'ENTREGADO' && e.estado !== 'FALLIDO').length,
+            failed: data.filter(e => e.estado === 'FALLIDO').length,
         });
     };
 
-    const fetchData = async () => {
-        try {
-            const rutas = await rutaService.getMisRutas();
-            const allEntregas: Entrega[] = [];
-            const detailPromises = rutas.map(r => rutaService.getRutaDetalle(r.id));
-            const detailedRutas = await Promise.all(detailPromises);
+    const handleSelectEntrega = (entrega: Entrega) => {
+        setSelectedEntrega(entrega);
+        setShowDetailModal(true);
+    };
 
-            detailedRutas.forEach(r => {
-                if (r.entregas) {
-                    allEntregas.push(...r.entregas);
-                }
+    // Acciones
+    const handleNavigationLocal = (lat?: number, lng?: number) => {
+        if (lat && lng) {
+            const url = Platform.select({
+                ios: `maps:0,0?q=${lat},${lng}`,
+                android: `geo:0,0?q=${lat},${lng}`
             });
-
-            setEntregas(allEntregas);
-            setFilteredEntregas(allEntregas);
-        } catch (error) {
-            console.error('Error fetching deliveries', error);
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
-        }
-    };
-
-    useEffect(() => {
-        fetchData();
-    }, []);
-
-    useEffect(() => {
-        if (searchQuery.trim() === '') {
-            setFilteredEntregas(entregas);
+            Linking.openURL(url!);
         } else {
-            const filtered = entregas.filter(e =>
-                e.cliente.nombreEmpresa.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                e.cliente.direccion.toLowerCase().includes(searchQuery.toLowerCase())
-            );
-            setFilteredEntregas(filtered);
+            Alert.alert('Ubicación no disponible', 'Esta entrega no tiene coordenadas GPS válidas.');
         }
-    }, [searchQuery, entregas]);
-
-    const onRefresh = () => {
-        setRefreshing(true);
-        fetchData();
     };
 
-    const renderEntrega = ({ item }: { item: Entrega }) => {
-        return (
-            <TouchableOpacity
-                style={styles.card}
-                activeOpacity={0.7}
-                onPress={() => handleOpenMaps(item.cliente.direccion)}
-            >
-                <View style={styles.cardHeader}>
-                    <View style={styles.iconBox}>
-                        <Package color={theme.primary} size={20} />
-                    </View>
-                    <View style={[styles.statusBadge,
-                    item.estado === 'ENTREGADO' ? styles.statusSuccess :
-                        item.estado === 'CANCELADO' ? styles.statusError : styles.statusPending]}>
-                        <Text style={styles.statusText}>{item.estado}</Text>
-                    </View>
-                </View>
-
-                <Text style={styles.clientName}>{item.cliente.nombreEmpresa}</Text>
-
-                <View style={styles.addressRow}>
-                    <MapPin size={14} color={theme.textSecondary} />
-                    <Text style={styles.addressText}>{item.cliente.direccion}</Text>
-                </View>
-
-                <View style={styles.footer}>
-                    <View style={styles.footerContent}>
-                        <Text style={styles.stopText}>Parada #{item.ordenParada}</Text>
-                        <Text style={styles.mapHint}>Toca para ver en Google Maps</Text>
-                    </View>
-                </View>
-            </TouchableOpacity>
-        );
+    const handleCall = (phone: string) => {
+        Linking.openURL(`tel:${phone}`);
     };
+
+    const handleSignatureOK = (signatureBg: string) => {
+        setSignature(signatureBg);
+    };
+
+    const handleCompleteDelivery = async () => {
+        if (selectedEntrega) {
+            try {
+                setLoading(true);
+                const success = await entregaService.updateEstadoEntrega(selectedEntrega.id, {
+                    Estado: 'ENTREGADO',
+                    Notas: podNotes,
+                    FirmaDigitalUrl: signature || undefined
+                });
+
+                if (success) {
+                    await cargarDatos(); // Recargar todo para sincronizar
+                    Alert.alert('¡Éxito!', 'Entrega confirmada correctamente.');
+                } else {
+                    Alert.alert('Error', 'No se pudo actualizar el estado en el servidor.');
+                }
+            } catch (error) {
+                Alert.alert('Error', 'Falló la conexión al completar entrega.');
+            } finally {
+                setLoading(false);
+            }
+        }
+        setShowPODModal(false);
+        setShowDetailModal(false);
+        resetPOD();
+    };
+
+    const handleFailDelivery = async () => {
+        if (selectedEntrega && failReason) {
+            try {
+                setLoading(true);
+                const success = await entregaService.updateEstadoEntrega(selectedEntrega.id, {
+                    Estado: 'FALLIDO',
+                    Notas: `Motivo: ${failReason}`
+                });
+
+                if (success) {
+                    await cargarDatos();
+                } else {
+                    Alert.alert('Error', 'No se pudo registrar el fallo.');
+                }
+            } catch (error) {
+                Alert.alert('Error', 'Falló la conexión al registrar fallo.');
+            } finally {
+                setLoading(false);
+            }
+        }
+        setShowFailModal(false);
+        setShowDetailModal(false);
+    };
+
+    const resetPOD = () => {
+        setSignature(null);
+        setPodNotes('');
+        if (signatureRef.current) signatureRef.current.clearSignature();
+    };
+
+    const animatedPathProps = useAnimatedProps(() => ({
+        strokeDashoffset: 400 * (1 - pathProgress.value),
+    }));
 
     return (
-        <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor={theme.background} />
+        <View style={styles.container}>
+            {/* Header Dashboard */}
+            <LinearGradient
+                colors={[COLORS.background, '#0a1628']}
+                style={styles.header}
+            >
+                <SafeAreaView edges={['top']}>
+                    <View style={styles.headerContent}>
+                        <View style={styles.topRow}>
+                            <View>
+                                <Text style={styles.headerSubtitle}>Hola, {rutaActiva?.nombreConductor || 'Conductor'}</Text>
+                                <Text style={styles.headerTitle}>Tu Ruta de Hoy</Text>
+                            </View>
+                            <TouchableOpacity style={styles.avatarBtn}>
+                                <View style={styles.badgeOnline} />
+                                <View style={styles.avatarPlaceholder}><Text style={{ color: 'white' }}>JD</Text></View>
+                            </TouchableOpacity>
+                        </View>
 
-            {/* Header */}
-            <View style={styles.header}>
-                <Text style={styles.title}>Mis Entregas</Text>
-            </View>
+                        {/* Mapa SVG Animado */}
+                        <View style={styles.mapContainer}>
+                            <Svg height="120" width={width - 48} viewBox="0 0 300 120">
+                                <Defs>
+                                    <SvgGradient id="grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                        <Stop offset="0%" stopColor={COLORS.accent} />
+                                        <Stop offset="100%" stopColor={COLORS.primary} />
+                                    </SvgGradient>
+                                </Defs>
+                                {/* Ruta trazada */}
+                                <AnimatedPath
+                                    d="M20,60 Q60,20 100,60 T180,60 T280,60"
+                                    stroke="url(#grad)"
+                                    strokeWidth="3"
+                                    fill="none"
+                                    strokeDasharray="400"
+                                    animatedProps={animatedPathProps}
+                                />
+                                {/* Puntos de entrega */}
+                                <Circle cx="20" cy="60" r="4" fill={COLORS.accent} />
+                                <Circle cx="100" cy="60" r="4" fill="white" />
+                                <Circle cx="180" cy="60" r="4" fill="white" />
+                                <Circle cx="280" cy="60" r="4" fill={COLORS.primary} />
 
-            {/* Search Bar */}
-            <View style={styles.searchContainer}>
-                <View style={styles.searchInputWrapper}>
-                    <Search color={theme.textSecondary} size={20} style={styles.searchIcon} />
+                                <SvgText x="10" y="80" fill={COLORS.textSecondary} fontSize="10" fontWeight="bold">Origen</SvgText>
+                                <SvgText x="260" y="80" fill={COLORS.textSecondary} fontSize="10" fontWeight="bold">Destino</SvgText>
+                            </Svg>
+                        </View>
+
+                        <View style={styles.statsGrid}>
+                            <View style={styles.statCard}>
+                                <Text style={styles.statValue}>{stats.total}</Text>
+                                <Text style={styles.statLabel}>Total</Text>
+                            </View>
+                            <View style={[styles.statCard, { borderLeftWidth: 1, borderLeftColor: 'rgba(255,255,255,0.1)' }]}>
+                                <Text style={[styles.statValue, { color: COLORS.success }]}>{stats.completed}</Text>
+                                <Text style={styles.statLabel}>Éxito</Text>
+                            </View>
+                            <View style={[styles.statCard, { borderLeftWidth: 1, borderLeftColor: 'rgba(255,255,255,0.1)' }]}>
+                                <Text style={[styles.statValue, { color: COLORS.primary }]}>{stats.pending}</Text>
+                                <Text style={styles.statLabel}>Pend.</Text>
+                            </View>
+                        </View>
+                    </View>
+                </SafeAreaView>
+            </LinearGradient>
+
+            {/* Listado */}
+            <View style={styles.searchBarContainer}>
+                <View style={styles.searchBar}>
+                    <Search size={18} color={COLORS.textSecondary} />
                     <TextInput
+                        placeholder="Buscar entrega o cliente..."
+                        placeholderTextColor={COLORS.textSecondary}
                         style={styles.searchInput}
-                        placeholder="Buscar por cliente o dirección..."
-                        placeholderTextColor={theme.textSecondary}
-                        value={searchQuery}
-                        onChangeText={setSearchQuery}
                     />
                 </View>
             </View>
 
-            {loading ? (
-                <View style={styles.loader}>
-                    <ActivityIndicator size="large" color={theme.primary} />
+            <ScrollView
+                style={styles.content}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 100 }}
+            >
+                <View style={styles.sectionHeaderRow}>
+                    <Text style={styles.sectionTitle}>Entregas Programadas</Text>
+                    <TouchableOpacity onPress={cargarDatos}>
+                        <Text style={{ color: COLORS.accent, fontSize: 12 }}>Actualizar</Text>
+                    </TouchableOpacity>
                 </View>
-            ) : (
-                <FlatList
-                    data={filteredEntregas}
-                    renderItem={renderEntrega}
-                    keyExtractor={(item) => item.id.toString()}
-                    contentContainerStyle={styles.listContent}
-                    refreshControl={
-                        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.primary} />
-                    }
-                    ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <Package size={48} color={theme.cardBorder} />
-                            <Text style={styles.emptyText}>No se encontraron entregas</Text>
+
+                {loading ? (
+                    <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 40 }} />
+                ) : entregas.length === 0 ? (
+                    <View style={styles.emptyState}>
+                        <Box size={48} color={COLORS.cardBorder} />
+                        <Text style={styles.emptyText}>No hay entregas asignadas para hoy.</Text>
+                    </View>
+                ) : (
+                    entregas.map((entrega, index) => {
+                        const isLast = index === entregas.length - 1;
+                        const isCurrent = entrega.estado === 'EN_CAMINO' || (index === 0 && stats.completed === 0);
+
+                        return (
+                            <View key={entrega.id} style={styles.timelineWrapper}>
+                                <View style={styles.timelineSidebar}>
+                                    <View style={[
+                                        styles.dot,
+                                        entrega.estado === 'ENTREGADO' ? styles.dotSuccess :
+                                            entrega.estado === 'FALLIDO' ? styles.dotDanger :
+                                                isCurrent ? styles.dotCurrent : styles.dotPending
+                                    ]}>
+                                        {entrega.estado === 'ENTREGADO' ? <CheckCircle size={12} color="white" /> :
+                                            entrega.estado === 'FALLIDO' ? <X size={12} color="white" /> :
+                                                <Text style={styles.dotNum}>{index + 1}</Text>}
+                                    </View>
+                                    {!isLast && <View style={styles.line} />}
+                                </View>
+
+                                <TouchableOpacity
+                                    style={[styles.card, isCurrent && styles.cardActive]}
+                                    onPress={() => handleSelectEntrega(entrega)}
+                                    activeOpacity={0.7}
+                                >
+                                    <View style={styles.cardInfo}>
+                                        <View style={styles.cardHeader}>
+                                            <Text style={styles.clientName}>{entrega.cliente.nombreEmpresa}</Text>
+                                            <View style={[styles.statusTag, { backgroundColor: getStatusColor(entrega.estado) + '20' }]}>
+                                                <Text style={[styles.statusText, { color: getStatusColor(entrega.estado) }]}>
+                                                    {entrega.estado}
+                                                </Text>
+                                            </View>
+                                        </View>
+
+                                        <View style={styles.infoRow}>
+                                            <MapPin size={14} color={COLORS.textSecondary} />
+                                            <Text style={styles.addressText} numberOfLines={1}>{entrega.cliente.direccion}</Text>
+                                        </View>
+
+                                        <View style={styles.cardFooter}>
+                                            <View style={styles.footerItem}>
+                                                <Clock size={14} color={COLORS.textSecondary} />
+                                                <Text style={styles.footerText}>{entrega.horaEstimada || '--:--'}</Text>
+                                            </View>
+                                            <View style={styles.footerItem}>
+                                                <Box size={14} color={COLORS.textSecondary} />
+                                                <Text style={styles.footerText}>{entrega.paquetes} bultos</Text>
+                                            </View>
+                                            <ChevronRight size={18} color={COLORS.textSecondary} />
+                                        </View>
+                                    </View>
+
+                                    {isCurrent && (
+                                        <LinearGradient
+                                            colors={[COLORS.primary, COLORS.primaryDark]}
+                                            style={styles.actionBanner}
+                                        >
+                                            <TouchableOpacity
+                                                style={styles.bannerBtn}
+                                                onPress={() => handleNavigationLocal(entrega.cliente.latitud, entrega.cliente.longitud)}
+                                            >
+                                                <Navigation size={16} color="white" />
+                                                <Text style={styles.bannerBtnText}>Navegar</Text>
+                                            </TouchableOpacity>
+                                            <View style={styles.bannerDivider} />
+                                            <TouchableOpacity
+                                                style={styles.bannerBtn}
+                                                onPress={() => handleCall(entrega.cliente.telefono)}
+                                            >
+                                                <Phone size={16} color="white" />
+                                                <Text style={styles.bannerBtnText}>Llamar</Text>
+                                            </TouchableOpacity>
+                                        </LinearGradient>
+                                    )}
+                                </TouchableOpacity>
+                            </View>
+                        );
+                    })
+                )}
+            </ScrollView>
+
+            {/* MODAL DETALLE */}
+            <Modal
+                visible={showDetailModal}
+                transparent
+                animationType="slide"
+                onRequestClose={() => setShowDetailModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>Detalle de Entrega</Text>
+                            <TouchableOpacity onPress={() => setShowDetailModal(false)}>
+                                <X size={24} color={COLORS.text} />
+                            </TouchableOpacity>
                         </View>
-                    }
-                />
-            )}
-        </SafeAreaView>
+
+                        {selectedEntrega && (
+                            <>
+                                <View style={styles.detailInfo}>
+                                    <Text style={styles.detailName}>{selectedEntrega.cliente.nombreEmpresa}</Text>
+                                    <Text style={styles.detailAddress}>{selectedEntrega.cliente.direccion}</Text>
+
+                                    <View style={styles.detailBadges}>
+                                        <View style={styles.badge}>
+                                            <Clock size={14} color={COLORS.textSecondary} />
+                                            <Text style={styles.badgeText}>{selectedEntrega.horaEstimada || 'Pendiente'}</Text>
+                                        </View>
+                                        <View style={styles.badge}>
+                                            <Box size={14} color={COLORS.textSecondary} />
+                                            <Text style={styles.badgeText}>{selectedEntrega.paquetes} Paquetes</Text>
+                                        </View>
+                                    </View>
+                                </View>
+
+                                {/* Quick Actions Grid */}
+                                <View style={styles.quickActions}>
+                                    <TouchableOpacity
+                                        style={styles.quickBtn}
+                                        onPress={() => handleNavigationLocal(selectedEntrega.cliente.latitud, selectedEntrega.cliente.longitud)}
+                                    >
+                                        <Navigation size={24} color={COLORS.primary} />
+                                        <Text style={styles.quickBtnText}>Navegar</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={styles.quickBtn}
+                                        onPress={() => handleCall(selectedEntrega.cliente.telefono)}
+                                    >
+                                        <Phone size={24} color={COLORS.info} />
+                                        <Text style={styles.quickBtnText}>Llamar</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={styles.quickBtn}
+                                        onPress={() => { setShowDetailModal(false); setShowQRModal(true); }}
+                                    >
+                                        <Scan size={24} color={COLORS.warning} />
+                                        <Text style={styles.quickBtnText}>Scan QR</Text>
+                                    </TouchableOpacity>
+                                </View>
+
+                                {/* Status Actions */}
+                                <View style={styles.statusActions}>
+                                    <TouchableOpacity
+                                        style={styles.btnPrimary}
+                                        onPress={() => { setShowDetailModal(false); setShowPODModal(true); }}
+                                    >
+                                        <Text style={styles.btnPrimaryText}>Completar Entrega</Text>
+                                    </TouchableOpacity>
+
+                                    <TouchableOpacity
+                                        style={styles.btnDanger}
+                                        onPress={() => { setShowDetailModal(false); setShowFailModal(true); }}
+                                    >
+                                        <Text style={styles.btnDangerText}>Marcar como Fallida</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </>
+                        )}
+                    </View>
+                </View>
+            </Modal>
+
+            {/* MODAL POD */}
+            <Modal visible={showPODModal} animationType="slide" onRequestClose={() => setShowPODModal(false)}>
+                <View style={styles.fullScreenModal}>
+                    <View style={styles.modalHeader}>
+                        <Text style={styles.modalTitle}>Prueba de Entrega (POD)</Text>
+                        <TouchableOpacity onPress={() => setShowPODModal(false)}>
+                            <X size={24} color={COLORS.text} />
+                        </TouchableOpacity>
+                    </View>
+
+                    <ScrollView contentContainerStyle={{ padding: 24 }}>
+                        <Text style={styles.sectionHeader}>Firma del Cliente</Text>
+                        <View style={styles.signatureContainer}>
+                            <SignatureScreen
+                                ref={signatureRef}
+                                onOK={handleSignatureOK}
+                                webStyle={`.m-signature-pad--footer {display: none; margin: 0px;}`}
+                                autoClear={false}
+                                imageType="image/png"
+                            />
+                            {/* Overlay button to clear manually if standard UI hidden */}
+                            <TouchableOpacity
+                                style={styles.clearSignatureBtn}
+                                onPress={() => signatureRef.current?.clearSignature()}
+                            >
+                                <Text style={styles.clearSignatureText}>Limpiar</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <Text style={styles.sectionHeader}>Foto (Opcional)</Text>
+                        <TouchableOpacity style={styles.photoUploadBtn}>
+                            <Camera size={24} color={COLORS.textSecondary} />
+                            <Text style={styles.photoText}>Tomar Foto del Paquete</Text>
+                        </TouchableOpacity>
+
+                        <Text style={styles.sectionHeader}>Notas</Text>
+                        <TextInput
+                            style={styles.textArea}
+                            multiline
+                            numberOfLines={4}
+                            placeholder="Ej: Entregado en portería..."
+                            placeholderTextColor={COLORS.textSecondary}
+                            value={podNotes}
+                            onChangeText={setPodNotes}
+                        />
+
+                        <TouchableOpacity style={[styles.btnPrimary, { marginTop: 32 }]} onPress={handleCompleteDelivery}>
+                            <Text style={styles.btnPrimaryText}>Confirmar Entrega</Text>
+                        </TouchableOpacity>
+                    </ScrollView>
+                </View>
+            </Modal>
+
+            {/* MODAL FALLO */}
+            <Modal visible={showFailModal} transparent animationType="fade" onRequestClose={() => setShowFailModal(false)}>
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>Reportar Entrega Fallida</Text>
+                        <Text style={styles.modalSubtitle}>Selecciona el motivo:</Text>
+
+                        <ScrollView style={{ maxHeight: 300 }}>
+                            {failReasons.map((reason) => (
+                                <TouchableOpacity
+                                    key={reason}
+                                    style={[styles.reasonItem, failReason === reason && styles.reasonItemActive]}
+                                    onPress={() => setFailReason(reason)}
+                                >
+                                    <Text style={[styles.reasonText, failReason === reason && { color: COLORS.danger }]}>{reason}</Text>
+                                    {failReason === reason && <AlertCircle size={20} color={COLORS.danger} />}
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+
+                        <View style={{ flexDirection: 'row', gap: 12, marginTop: 24 }}>
+                            <TouchableOpacity style={styles.btnSecondary} onPress={() => setShowFailModal(false)}>
+                                <Text style={styles.btnSecondaryText}>Cancelar</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.btnDanger, { flex: 1 }]}
+                                disabled={!failReason}
+                                onPress={handleFailDelivery}
+                            >
+                                <Text style={styles.btnDangerText}>Confirmar Fallo</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* MODAL QR */}
+            <Modal visible={showQRModal} animationType="fade">
+                <View style={{ flex: 1, backgroundColor: 'black', alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: 'white', fontSize: 18, marginBottom: 20 }}>Escanea el código del paquete</Text>
+                    <View style={styles.qrFrame}>
+                        <View style={styles.scanLine} />
+                    </View>
+                    <Text style={{ color: COLORS.primary, marginTop: 20 }}>Esperando: {selectedEntrega?.codigoQr || '...'}</Text>
+                    <TouchableOpacity
+                        style={styles.closeQR}
+                        onPress={() => setShowQRModal(false)}
+                    >
+                        <X size={32} color="white" />
+                    </TouchableOpacity>
+                </View>
+            </Modal>
+        </View>
     );
 }
+
+const getStatusColor = (estado: string) => {
+    switch (estado) {
+        case 'ENTREGADO': return COLORS.success;
+        case 'FALLIDO': return COLORS.danger;
+        case 'EN_CAMINO': return COLORS.primary;
+        default: return COLORS.textSecondary;
+    }
+};
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: theme.background,
+        backgroundColor: COLORS.background,
     },
     header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingHorizontal: 20,
-        paddingVertical: 15,
+        padding: 24,
+        paddingBottom: 40,
+        borderBottomLeftRadius: 32,
+        borderBottomRightRadius: 32,
     },
-    backButton: {
+    headerContent: {},
+    topRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 24,
+    },
+    headerTitle: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: 'white',
+    },
+    headerSubtitle: {
+        fontSize: 14,
+        color: COLORS.textSecondary,
+    },
+    avatarBtn: {
+        position: 'relative',
+    },
+    avatarPlaceholder: {
         width: 44,
         height: 44,
-        borderRadius: 12,
-        backgroundColor: theme.card,
+        borderRadius: 22,
+        backgroundColor: COLORS.card,
+        borderWidth: 2,
+        borderColor: COLORS.primary,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    title: {
-        fontSize: 20,
-        fontWeight: '800',
-        color: theme.text,
+    badgeOnline: {
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+        backgroundColor: COLORS.success,
+        borderWidth: 2,
+        borderColor: COLORS.background,
+        zIndex: 1,
     },
-    searchContainer: {
-        paddingHorizontal: 20,
-        marginBottom: 20,
+    mapContainer: {
+        backgroundColor: 'rgba(255,255,255,0.03)',
+        borderRadius: 20,
+        padding: 12,
+        marginBottom: 24,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.05)',
     },
-    searchInputWrapper: {
+    mapLabel: {
+        position: 'absolute',
+        color: COLORS.textSecondary,
+        fontSize: 10,
+        fontWeight: 'bold',
+        textTransform: 'uppercase',
+    },
+    statsGrid: {
+        flexDirection: 'row',
+        backgroundColor: 'rgba(0,0,0,0.2)',
+        borderRadius: 16,
+        paddingVertical: 12,
+    },
+    statCard: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    statValue: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: 'white',
+    },
+    statLabel: {
+        fontSize: 11,
+        color: COLORS.textSecondary,
+        marginTop: 2,
+    },
+    searchBarContainer: {
+        paddingHorizontal: 24,
+        marginTop: -25,
+    },
+    searchBar: {
+        backgroundColor: '#1E2D3D',
+        height: 50,
+        borderRadius: 15,
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: theme.card,
-        borderRadius: 15,
-        paddingHorizontal: 15,
-        height: 52,
-        borderWidth: 1,
-        borderColor: theme.cardBorder,
-    },
-    searchIcon: {
-        marginRight: 10,
-        opacity: 0.5,
+        paddingHorizontal: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 10,
     },
     searchInput: {
         flex: 1,
-        color: theme.text,
-        fontSize: 15,
+        marginLeft: 12,
+        color: 'white',
+        fontSize: 14,
     },
-    listContent: {
-        padding: 20,
-        paddingBottom: 40,
+    content: {
+        flex: 1,
+        paddingHorizontal: 24,
+        paddingTop: 32,
+    },
+    sectionHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: 'white',
+    },
+    timelineWrapper: {
+        flexDirection: 'row',
+        minHeight: 120,
+    },
+    timelineSidebar: {
+        width: 40,
+        alignItems: 'center',
+    },
+    dot: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: COLORS.card,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: COLORS.cardBorder,
+        zIndex: 2,
+    },
+    dotNum: { color: COLORS.textSecondary, fontSize: 12, fontWeight: 'bold' },
+    dotCurrent: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+    dotSuccess: { backgroundColor: COLORS.success, borderColor: COLORS.success },
+    dotDanger: { backgroundColor: COLORS.danger, borderColor: COLORS.danger },
+    line: {
+        flex: 1,
+        width: 2,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        marginVertical: 4,
     },
     card: {
-        backgroundColor: theme.card,
+        flex: 1,
+        backgroundColor: COLORS.card,
         borderRadius: 20,
-        padding: 16,
-        marginBottom: 16,
+        marginBottom: 20,
         borderWidth: 1,
-        borderColor: theme.cardBorder,
+        borderColor: COLORS.cardBorder,
+        overflow: 'hidden',
+    },
+    cardActive: {
+        borderColor: COLORS.primary + '40',
+        backgroundColor: '#25354a',
+    },
+    cardInfo: {
+        padding: 16,
     },
     cardHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 12,
+        alignItems: 'flex-start',
+        marginBottom: 8,
     },
-    iconBox: {
-        width: 36,
-        height: 36,
-        borderRadius: 10,
-        backgroundColor: `${theme.primary}15`,
-        justifyContent: 'center',
-        alignItems: 'center',
+    clientName: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: 'white',
+        flex: 1,
+        marginRight: 8,
     },
-    statusBadge: {
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 8,
+    statusTag: {
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+        borderRadius: 6,
     },
     statusText: {
         fontSize: 10,
-        fontWeight: '800',
-        textTransform: 'uppercase',
+        fontWeight: 'bold',
     },
-    statusSuccess: {
-        backgroundColor: `${theme.success}15`,
-        borderWidth: 1,
-        borderColor: `${theme.success}25`,
-    },
-    statusError: {
-        backgroundColor: `${theme.danger}15`,
-        borderWidth: 1,
-        borderColor: `${theme.danger}25`,
-    },
-    statusPending: {
-        backgroundColor: 'rgba(255, 255, 255, 0.05)',
-        borderWidth: 1,
-        borderColor: theme.cardBorder,
-    },
-    clientName: {
-        fontSize: 17,
-        fontWeight: '700',
-        color: theme.text,
-        marginBottom: 8,
-    },
-    addressRow: {
+    infoRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
+        gap: 8,
         marginBottom: 12,
     },
     addressText: {
         fontSize: 13,
-        color: theme.textSecondary,
-        flex: 1,
+        color: COLORS.textSecondary,
     },
-    footer: {
-        borderTopWidth: 1,
-        borderTopColor: theme.cardBorder,
+    cardFooter: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 16,
         paddingTop: 12,
+        borderTopWidth: 1,
+        borderTopColor: 'rgba(255,255,255,0.05)',
     },
-    footerContent: {
+    footerItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+    },
+    footerText: {
+        fontSize: 12,
+        color: COLORS.textSecondary,
+    },
+    actionBanner: {
+        flexDirection: 'row',
+        height: 44,
+    },
+    bannerBtn: {
+        flex: 1,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 8,
+    },
+    bannerBtnText: {
+        color: 'white',
+        fontSize: 13,
+        fontWeight: 'bold',
+    },
+    bannerDivider: {
+        width: 1,
+        height: '60%',
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        alignSelf: 'center',
+    },
+    emptyState: {
+        alignItems: 'center',
+        marginTop: 60,
+    },
+    emptyText: {
+        color: COLORS.textSecondary,
+        marginTop: 16,
+        textAlign: 'center',
+    },
+    // Modals
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.85)',
+        justifyContent: 'flex-end',
+    },
+    modalContent: {
+        backgroundColor: COLORS.background,
+        borderTopLeftRadius: 32,
+        borderTopRightRadius: 32,
+        padding: 24,
+        minHeight: 500,
+    },
+    modalHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        marginBottom: 32,
     },
-    stopText: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: theme.primary,
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: 'white',
     },
-    mapHint: {
-        fontSize: 11,
-        color: theme.textSecondary,
-        opacity: 0.5,
-        fontStyle: 'italic',
+    modalSubtitle: {
+        fontSize: 14,
+        color: COLORS.textSecondary,
+        marginBottom: 12,
     },
-    loader: {
+    detailInfo: {
+        marginBottom: 32,
+    },
+    detailName: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: 'white',
+        marginBottom: 8,
+    },
+    detailAddress: {
+        fontSize: 16,
+        color: COLORS.textSecondary,
+        lineHeight: 24,
+    },
+    detailBadges: {
+        flexDirection: 'row',
+        gap: 12,
+        marginTop: 20,
+    },
+    badge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 12,
+    },
+    badgeText: {
+        color: 'white',
+        fontSize: 13,
+    },
+    quickActions: {
+        flexDirection: 'row',
+        gap: 12,
+        marginBottom: 40,
+    },
+    quickBtn: {
         flex: 1,
+        backgroundColor: COLORS.card,
+        borderRadius: 20,
+        paddingVertical: 20,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: COLORS.cardBorder,
+    },
+    quickBtnText: {
+        color: 'white',
+        fontSize: 12,
+        marginTop: 8,
+        fontWeight: 'bold',
+    },
+    statusActions: {
+        gap: 12,
+    },
+    btnPrimary: {
+        backgroundColor: COLORS.primary,
+        height: 56,
+        borderRadius: 16,
         justifyContent: 'center',
         alignItems: 'center',
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 5,
     },
-    emptyContainer: {
-        alignItems: 'center',
-        marginTop: 60,
-        gap: 16,
-    },
-    emptyText: {
-        color: theme.textSecondary,
+    btnPrimaryText: {
+        color: 'white',
         fontSize: 16,
-        fontWeight: '600',
+        fontWeight: 'bold',
+    },
+    btnDanger: {
+        height: 50,
+        borderRadius: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: COLORS.danger + '40',
+    },
+    btnDangerText: {
+        color: COLORS.danger,
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
+    btnSecondary: {
+        height: 50,
+        borderRadius: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: COLORS.card,
+        paddingHorizontal: 20,
+    },
+    btnSecondaryText: {
+        color: 'white',
+        fontSize: 14,
+    },
+    signatureContainer: {
+        height: 300,
+        backgroundColor: 'white',
+        borderRadius: 16,
+        overflow: 'hidden',
+        marginBottom: 24,
+    },
+    clearSignatureBtn: {
+        position: 'absolute',
+        top: 12,
+        right: 12,
+        backgroundColor: 'rgba(0,0,0,0.1)',
+        padding: 8,
+        borderRadius: 8,
+    },
+    clearSignatureText: {
+        fontSize: 12,
+        color: '#666',
+    },
+    sectionHeader: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: 'white',
+        marginBottom: 12,
+        marginTop: 12,
+    },
+    textArea: {
+        backgroundColor: COLORS.card,
+        borderRadius: 16,
+        padding: 16,
+        color: 'white',
+        textAlignVertical: 'top',
+        borderWidth: 1,
+        borderColor: COLORS.cardBorder,
+    },
+    fullScreenModal: {
+        flex: 1,
+        backgroundColor: COLORS.background,
+    },
+    reasonItem: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 16,
+        backgroundColor: COLORS.card,
+        borderRadius: 12,
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: COLORS.cardBorder,
+    },
+    reasonItemActive: {
+        borderColor: COLORS.danger,
+        backgroundColor: 'rgba(239,68,68,0.1)',
+    },
+    reasonText: {
+        color: 'white',
+        fontSize: 14,
+    },
+    qrFrame: {
+        width: 250,
+        height: 250,
+        borderWidth: 2,
+        borderColor: COLORS.primary,
+        borderRadius: 24,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    scanLine: {
+        height: 2,
+        backgroundColor: COLORS.primary,
+        width: '100%',
+        shadowColor: COLORS.primary,
+        shadowRadius: 10,
+        shadowOpacity: 1,
+    },
+    closeQR: {
+        position: 'absolute',
+        bottom: 50,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        padding: 16,
+        borderRadius: 30,
+    },
+    dotPending: {
+        backgroundColor: COLORS.card,
+        borderColor: COLORS.cardBorder,
+    },
+    photoUploadBtn: {
+        height: 100,
+        backgroundColor: COLORS.card,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: COLORS.cardBorder,
+        borderStyle: 'dashed',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 24,
+    },
+    photoText: {
+        color: COLORS.textSecondary,
+        fontSize: 14,
     },
 });

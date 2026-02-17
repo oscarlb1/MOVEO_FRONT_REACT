@@ -16,6 +16,9 @@ export interface Entrega {
     id: number;
     estado: string;
     ordenParada: number;
+    paquetes: number;
+    horaEstimada?: string;
+    codigoQr?: string;
     cliente: {
         nombreEmpresa: string;
         direccion: string;
