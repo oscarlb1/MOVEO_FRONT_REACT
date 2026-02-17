@@ -16,11 +16,11 @@ const getApiUrl = () => {
         return NGROK_URL.endsWith('/') ? `${NGROK_URL}api/` : `${NGROK_URL}/api/`;
     }
 
-    if (Platform.OS === 'web') return 'http://localhost:5079/api/';
+    if (Platform.OS === 'web') return 'https://localhost:7085/api/';
 
     // Android Emulator specific configuration
     if (Platform.OS === 'android' && !Device.isDevice) {
-        return 'http://10.0.2.2:5079/api/';
+        return 'https://10.0.2.2:7085/api/';
     }
 
     // dynamic IP for physical devices (development in same Wi-Fi)
@@ -28,6 +28,7 @@ const getApiUrl = () => {
     const localhost = debuggerHost?.split(':')[0];
 
     if (localhost && !localhost.includes('exp.direct')) {
+        // Usamos el puerto HTTP (5079) para dispositivos físicos para evitar problemas de certificados SSL
         return `http://${localhost}:5079/api/`;
     }
 
@@ -69,27 +70,29 @@ api.interceptors.request.use(
 api.interceptors.response.use(
     (response) => response,
     async (error) => {
-        if (error.response?.status === 401) {
-            console.warn('Sesión caducada o no autorizada. Limpiando almacenamiento...');
-            try {
-                const { storageAdapter } = await import('./storageAdapter');
-                const AsyncStorage = (await import('@react-native-async-storage/async-storage')).default;
-                const { Alert } = await import('react-native');
-
+        try {
+            if (error.response?.status === 401) {
+                console.warn('Sesión caducada o no autorizada. Limpiando almacenamiento...');
                 await storageAdapter.deleteItem('userToken');
-                await AsyncStorage.removeItem('userData');
 
-                Alert.alert(
-                    'Sesión Expirada',
-                    'Tu sesión ha caducado. Por favor, inicia sesión de nuevo.',
-                    [{ text: 'OK' }]
-                );
-            } catch (e) {
-                console.error('Error clearing session on 401', e);
+                console.warn('Session cleared successfully');
+
+                setTimeout(() => {
+                    const { Alert } = require('react-native');
+                    Alert.alert(
+                        'Sesión Expirada',
+                        'Tu sesión ha caducado. Por favor, inicia sesión de nuevo.',
+                        [{ text: 'OK' }]
+                    );
+                }, 100);
             }
+        } catch (e) {
+            console.error('Error clearing session on 401', e);
         }
+
         return Promise.reject(error);
     }
 );
+
 
 export default api;

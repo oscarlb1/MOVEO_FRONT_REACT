@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
     BarChart3,
+    Calendar,
     CheckCircle2,
     Clock,
     MapPin as MapIcon,
@@ -12,6 +13,7 @@ import {
     Package,
     Phone,
     RefreshCw,
+    Settings,
     TrendingUp,
     Zap
 } from 'lucide-react-native';
@@ -73,11 +75,11 @@ export default function ListaRutasScreen() {
     }) as any);
 
     const markers = [
-        { x: 50, y: 180, completed: true },
-        { x: 100, y: 160, completed: true },
-        { x: 130, y: 140, completed: true },
-        { x: 180, y: 110, completed: false, active: true },
-        { x: 230, y: 70, completed: false }
+        { x: 50, y: 165, completed: true },
+        { x: 100, y: 145, completed: true },
+        { x: 130, y: 125, completed: true },
+        { x: 180, y: 95, completed: false, active: true },
+        { x: 230, y: 65, completed: false }
     ];
 
     return (
@@ -86,13 +88,33 @@ export default function ListaRutasScreen() {
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
                 {/* Header Section */}
-                <LinearGradient
-                    colors={['#0a1628', '#0d1d35']}
-                    style={styles.header}
-                >
-                    <Text style={styles.headerTitle}>Mis Rutas</Text>
-                    <Text style={styles.headerSubtitle}>Optimizadas con IA • Actualizado hace 2 min</Text>
-                </LinearGradient>
+                {/* Header Section - PREMIUM REDESIGN */}
+                <View style={styles.headerContainer}>
+                    <LinearGradient
+                        colors={['#0a1628', '#0a1628']}
+                        style={StyleSheet.absoluteFill}
+                    />
+
+                    {/* Top Bar */}
+                    <View style={styles.topBar}>
+                        <View style={styles.dateBadge}>
+                            <Calendar size={12} color={theme.primary} />
+                            <Text style={styles.dateText}>Hoy, 17 Feb</Text>
+                        </View>
+                        <TouchableOpacity style={styles.settingsButton}>
+                            <Settings size={20} color="white" />
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Title Area */}
+                    <View style={styles.titleArea}>
+                        <Text style={styles.headerTitle}>Mis Rutas</Text>
+                        <View style={styles.statusBadge}>
+                            <View style={styles.statusDotPulse} />
+                            <Text style={styles.headerSubtitle}>Actualizado hace 2 min</Text>
+                        </View>
+                    </View>
+                </View>
 
                 {/* Map Preview Section */}
                 <View style={styles.mapContainer}>
@@ -110,7 +132,7 @@ export default function ListaRutasScreen() {
 
                         {/* Route Line Animation */}
                         <AnimatedPath
-                            d="M 50,180 Q 80,140 100,160 T 130,140 T 180,110 T 230,70"
+                            d="M 50,165 Q 80,125 100,145 T 130,125 T 180,95 T 230,65"
                             stroke={theme.primary}
                             strokeWidth="3"
                             fill="none"
@@ -228,6 +250,7 @@ export default function ListaRutasScreen() {
                         </View>
                     </LinearGradient>
 
+                    {/* Timeline Section */}
                     {/* Timeline Section */}
                     <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Secuencia de paradas</Text>
@@ -355,13 +378,17 @@ export default function ListaRutasScreen() {
                         </View>
                         <View style={styles.aiResultsRow}>
                             <View style={styles.aiResultPill}>
-                                <TrendingUp size={14} color={theme.success} />
-                                <Text style={styles.aiResultValue}>-18%</Text>
+                                <View style={styles.aiResultContent}>
+                                    <TrendingUp size={16} color={theme.success} />
+                                    <Text style={styles.aiResultValue}>-18%</Text>
+                                </View>
                                 <Text style={styles.aiResultLabel}>Tiempo</Text>
                             </View>
                             <View style={styles.aiResultPill}>
-                                <TrendingUp size={14} color={theme.success} />
-                                <Text style={styles.aiResultValue}>-3.2 km</Text>
+                                <View style={styles.aiResultContent}>
+                                    <TrendingUp size={16} color={theme.success} />
+                                    <Text style={styles.aiResultValue}>-3.2 km</Text>
+                                </View>
                                 <Text style={styles.aiResultLabel}>Distancia</Text>
                             </View>
                         </View>
@@ -408,21 +435,70 @@ const styles = StyleSheet.create({
     scrollContent: {
         paddingBottom: 40,
     },
-    header: {
+    headerContainer: {
+        paddingTop: 0, // Padding normal
+        paddingBottom: 20, // Padding normal
+        marginBottom: 20, // ¡Este es el espacio que querías! Margen externo
+    },
+    topBar: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         paddingHorizontal: 24,
-        paddingTop: 40,
-        paddingBottom: 30,
+        marginTop: 10,
+        marginBottom: 16,
+    },
+    dateBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.08)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        gap: 6,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.05)',
+    },
+    dateText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    settingsButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.05)',
+    },
+    titleArea: {
+        paddingHorizontal: 24,
     },
     headerTitle: {
-        fontSize: 32,
-        fontWeight: '900',
+        fontSize: 34,
+        fontWeight: '700', // Elegancia sobre peso puro
         color: 'white',
         letterSpacing: -0.5,
+        marginBottom: 8,
+    },
+    statusBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    statusDotPulse: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: theme.success,
+        marginRight: 8,
     },
     headerSubtitle: {
-        fontSize: 14,
+        fontSize: 13,
         color: 'rgba(255, 255, 255, 0.5)',
-        marginTop: 6,
+        fontWeight: '500',
     },
     mapContainer: {
         height: 280,
@@ -472,7 +548,7 @@ const styles = StyleSheet.create({
     },
     mapNavButton: {
         position: 'absolute',
-        top: 20,
+        top: 80, // Bajado, seguro debajo de las etiquetas
         right: 20,
         width: 44,
         height: 44,
@@ -480,11 +556,12 @@ const styles = StyleSheet.create({
         borderRadius: 14,
         justifyContent: 'center',
         alignItems: 'center',
-        elevation: 10,
-        shadowColor: theme.primary,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.4,
-        shadowRadius: 10,
+        // Sombra más sutil para que no "vuele" tanto
+        elevation: 4,
+        shadowColor: 'black',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
     },
     mapBottomStats: {
         position: 'absolute',
@@ -601,10 +678,8 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     sectionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
         marginBottom: 24,
+        gap: 12, // Espacio entre título y botón
     },
     sectionTitle: {
         fontSize: 22,
@@ -614,15 +689,17 @@ const styles = StyleSheet.create({
     reoptimizeBtn: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 6,
-        paddingVertical: 6,
-        paddingHorizontal: 12,
+        justifyContent: 'center', // Centrado si ocupa ancho
+        gap: 8,
+        paddingVertical: 10,
+        paddingHorizontal: 16,
         backgroundColor: 'rgba(230, 126, 80, 0.1)',
-        borderRadius: 10,
+        borderRadius: 12,
+        alignSelf: 'flex-start', // Para que no ocupe todo el ancho necesariamente, o 'stretch' si se prefiere
     },
     reoptimizeText: {
         color: theme.primary,
-        fontSize: 13,
+        fontSize: 14,
         fontWeight: '700',
     },
     timeline: {
@@ -631,35 +708,39 @@ const styles = StyleSheet.create({
     timelineNode: {
         flexDirection: 'row',
         gap: 20,
+        minHeight: 140, // Asegura que la línea tenga espacio para dibujarse
     },
     nodeLeft: {
         alignItems: 'center',
         width: 44,
+        // Eliminamos height fijo o flex para dejar que crezca
     },
     circleDone: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: '#374B54',
+        width: 32, // Más sutil
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: '#1E293B',
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 2,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: '#334155',
+        marginTop: 4, // Alineación óptica con el Card Header
+        zIndex: 2,
     },
     circleActive: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
+        width: 32,
+        height: 32,
+        borderRadius: 16,
         backgroundColor: theme.primary,
         justifyContent: 'center',
         alignItems: 'center',
-        borderWidth: 3,
-        borderColor: 'white',
+        borderWidth: 0,
         zIndex: 10,
         elevation: 8,
         shadowColor: theme.primary,
-        shadowOpacity: 0.6,
-        shadowRadius: 10,
+        shadowOpacity: 0.5,
+        shadowRadius: 12,
+        marginTop: 4,
     },
     activeNumber: {
         color: 'white',
@@ -667,14 +748,16 @@ const styles = StyleSheet.create({
         fontWeight: '900',
     },
     circlePending: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: '#1e2d3d',
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: '#0F172A',
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 2,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: '#1E293B',
+        marginTop: 4,
+        zIndex: 2,
     },
     pendingNumber: {
         color: 'rgba(255, 255, 255, 0.4)',
@@ -683,39 +766,48 @@ const styles = StyleSheet.create({
     },
     verticalLine: {
         width: 2,
-        flex: 1,
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        marginVertical: 4,
+        flex: 1, // Ocupa todo el espacio vertical disponible
+        backgroundColor: '#1E293B',
+        position: 'absolute',
+        top: 36, // Empieza debajo del círculo
+        bottom: -4, // Conecta con el siguiente
+        zIndex: 1,
     },
     verticalLineActive: {
-        width: 3,
+        width: 2,
         flex: 1,
         backgroundColor: theme.primary,
-        marginVertical: 4,
+        position: 'absolute',
+        top: 36,
+        bottom: -4,
+        zIndex: 1,
+        opacity: 0.5,
     },
     stopCardInactive: {
         flex: 1,
-        backgroundColor: 'rgba(30, 45, 61, 0.4)',
-        borderRadius: 24,
-        padding: 20,
-        marginBottom: 20,
+        backgroundColor: 'rgba(30, 41, 59, 0.5)', // Slate 800 con transparencia
+        borderRadius: 20,
+        padding: 16,
+        marginBottom: 24,
         borderWidth: 1,
         borderColor: 'rgba(255, 255, 255, 0.05)',
     },
     stopCardActive: {
         flex: 1,
-        borderRadius: 28,
-        padding: 24,
+        borderRadius: 20,
+        padding: 20,
         marginBottom: 24,
+        // Eliminamos el gradiente directo aquí si usamos LinearGradient como contenedor
     },
     stopCardPending: {
         flex: 1,
-        backgroundColor: '#1e2d3d',
-        borderRadius: 24,
-        padding: 20,
-        marginBottom: 20,
+        backgroundColor: '#0F172A', // Slate 900
+        borderRadius: 20,
+        padding: 16,
+        marginBottom: 24,
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderColor: '#1E293B', // Slate 800
+        opacity: 0.8,
     },
     stopCardHeader: {
         flexDirection: 'row',
@@ -908,10 +1000,15 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#0a1628',
         borderRadius: 16,
-        padding: 16,
+        paddingVertical: 16,
+        paddingHorizontal: 12,
+        alignItems: 'center', // Centrado verticalmente
+        gap: 4,
+    },
+    aiResultContent: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        gap: 6,
     },
     aiResultValue: {
         color: theme.success,
