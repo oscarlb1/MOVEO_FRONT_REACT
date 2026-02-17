@@ -1,15 +1,26 @@
-import { WebColors } from '@/constants/theme';
 import api from '@/services/api';
 import { useAuth } from '@/store/authStore';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Camera, LogOut, Mail, Phone, Save, Settings as SettingsIcon, User } from 'lucide-react-native';
+import { Camera, ChevronLeft, ChevronRight, Mail, Phone, Save, User } from 'lucide-react-native';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Image, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-const theme = WebColors.dark;
+// Colores específicos del nuevo diseño
+const COLORS = {
+    background: '#0d1d35', // Fondo general oscuro
+    headerStart: '#092C4C',
+    headerMid: '#0d1d35',
+    headerEnd: '#092C4C',
+    accent: '#E67E50', // Naranja Moveo
+    inputBg: '#0d1d35',
+    inputBorder: '#2a3f54',
+    text: '#FFFFFF',
+    textSecondary: '#9ca3af', // Gray-400
+    danger: '#ef4444',
+};
 
 export default function SettingsScreen() {
     const { user, logout, updateUser } = useAuth();
@@ -40,8 +51,8 @@ export default function SettingsScreen() {
     };
 
     const handleSave = async () => {
-        if (!nombre || !email) {
-            Alert.alert('Error', 'Nombre y Email son requeridos');
+        if (!nombre) {
+            Alert.alert('Error', 'El nombre es requerido');
             return;
         }
 
@@ -62,88 +73,107 @@ export default function SettingsScreen() {
         }
     };
 
+
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            <StatusBar barStyle="light-content" backgroundColor={theme.background} />
+        <View style={styles.container}>
+            <StatusBar barStyle="light-content" backgroundColor={COLORS.headerStart} />
 
-            {/* Header */}
-            <View style={styles.header}>
-                <Text style={styles.title}>Mi Perfil</Text>
-            </View>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-                <View style={styles.profileHeader}>
-                    <View style={styles.avatarWrapper}>
-                        <LinearGradient
-                            colors={[theme.primary, theme.primary]}
-                            style={styles.avatar}
-                        >
-                            {image ? (
-                                <Image source={{ uri: image }} style={styles.avatarImage} />
-                            ) : (
-                                <User color="white" size={48} />
-                            )}
-                        </LinearGradient>
-                        <TouchableOpacity style={styles.cameraButton} onPress={pickImage}>
-                            <Camera color="white" size={18} />
-                        </TouchableOpacity>
-                    </View>
-                    <Text style={styles.userName}>{user?.nombre || 'Usuario'}</Text>
-                    <View style={styles.roleBadge}>
-                        <Text style={styles.roleText}>{user?.rol || 'REPARTIDOR'}</Text>
-                    </View>
-                </View>
+                {/* Header Section */}
+                <LinearGradient
+                    colors={[COLORS.headerStart, COLORS.headerMid, COLORS.headerEnd]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.header}
+                >
+                    <SafeAreaView edges={['top']}>
 
-                <View style={styles.formSection}>
-                    <Text style={styles.sectionLabel}>Información Personal</Text>
+                        <View style={styles.profileInfo}>
+                            {/* Avatar */}
+                            <View style={styles.avatarContainer}>
+                                <View style={styles.avatarFrame}>
+                                    {image ? (
+                                        <Image source={{ uri: image }} style={styles.avatarImage} />
+                                    ) : (
+                                        <User color="white" size={64} />
+                                    )}
+                                </View>
+                                <TouchableOpacity style={styles.cameraButton} onPress={pickImage}>
+                                    <Camera color="white" size={20} />
+                                </TouchableOpacity>
+                            </View>
 
+                            {/* Name Badge */}
+                            <View style={styles.nameBadge}>
+                                <Text style={styles.nameText}>
+                                    {(nombre || 'Usuario').split(' ')[0].toLowerCase()}
+                                </Text>
+                            </View>
+
+                            <Text style={styles.roleText}>{user?.rol || 'REPARTIDOR'}</Text>
+                        </View>
+                    </SafeAreaView>
+                </LinearGradient>
+
+                {/* Content Section */}
+                <View style={styles.content}>
+
+                    {/* Personal Info */}
+                    <Text style={styles.sectionTitle}>INFORMACIÓN PERSONAL</Text>
+
+                    {/* Nombre Input */}
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Nombre Completo</Text>
-                        <View style={styles.inputWrapper}>
-                            <User color={theme.primary} size={20} style={styles.icon} />
+                        <View style={styles.inputContainer}>
+                            <User color={COLORS.accent} size={20} />
                             <TextInput
                                 style={styles.input}
                                 value={nombre}
                                 onChangeText={setNombre}
-                                placeholder="Tu nombre"
-                                placeholderTextColor={theme.textSecondary}
+                                placeholder="Ingresa tu nombre completo"
+                                placeholderTextColor="#6b7280"
                             />
                         </View>
                     </View>
 
+                    {/* Email Input */}
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Correo Electrónico</Text>
-                        <View style={[styles.inputWrapper, styles.disabledInput]}>
-                            <Mail color={theme.textSecondary} size={20} style={styles.icon} />
+                        <View style={styles.inputContainer}>
+                            <Mail color={COLORS.accent} size={20} />
                             <TextInput
-                                style={[styles.input, styles.disabledText]}
+                                style={styles.input}
                                 value={email}
-                                editable={false}
-                                placeholder="tu@email.com"
-                                placeholderTextColor={theme.textSecondary}
+                                editable={false} // Email suele ser inmutable o requiere proceso aparte
+                                placeholder="correo@ejemplo.com"
+                                placeholderTextColor="#6b7280"
                             />
                         </View>
                     </View>
 
+                    {/* Teléfono Input */}
                     <View style={styles.inputGroup}>
                         <Text style={styles.label}>Teléfono</Text>
-                        <View style={styles.inputWrapper}>
-                            <Phone color={theme.primary} size={20} style={styles.icon} />
+                        <View style={styles.inputContainer}>
+                            <Phone color={COLORS.accent} size={20} />
                             <TextInput
                                 style={styles.input}
                                 value={telefono}
                                 onChangeText={setTelefono}
-                                placeholder="+34 600 000 000"
+                                placeholder="600000011"
                                 keyboardType="phone-pad"
-                                placeholderTextColor={theme.textSecondary}
+                                placeholderTextColor="#6b7280"
                             />
                         </View>
                     </View>
 
+                    {/* Save Button */}
                     <TouchableOpacity
-                        style={[styles.saveButton, isSaving && styles.buttonDisabled]}
+                        style={[styles.saveButton, isSaving && styles.disabledButton]}
                         onPress={handleSave}
                         disabled={isSaving}
+                        activeOpacity={0.9}
                     >
                         {isSaving ? (
                             <ActivityIndicator color="white" />
@@ -154,202 +184,221 @@ export default function SettingsScreen() {
                             </>
                         )}
                     </TouchableOpacity>
-                </View>
 
-                <View style={styles.dangerZone}>
-                    <Text style={[styles.sectionLabel, { color: theme.danger }]}>Acciones de Cuenta</Text>
-                    <TouchableOpacity style={styles.logoutButton} onPress={logout}>
-                        <LogOut color={theme.danger} size={20} />
-                        <Text style={styles.logoutButtonText}>Cerrar Sesión Activa</Text>
+                    {/* Security Section */}
+                    <Text style={[styles.sectionTitle, { marginTop: 32 }]}>SEGURIDAD</Text>
+
+                    <TouchableOpacity style={styles.securityButton}>
+                        <Text style={styles.securityButtonText}>Cambiar Contraseña</Text>
+                        <ChevronRight color="#6b7280" size={20} />
                     </TouchableOpacity>
-                </View>
 
-                <View style={styles.footer}>
-                    <SettingsIcon color={theme.cardBorder} size={40} />
-                    <Text style={styles.footerText}>Moveo Logistics v2.0</Text>
+                    {/* Logout Button */}
+                    <TouchableOpacity style={styles.logoutButton} onPress={logout} activeOpacity={0.8}>
+                        <Text style={styles.logoutText}>Cerrar Sesión</Text>
+                    </TouchableOpacity>
+
+                    {/* Footer */}
+                    <View style={styles.footer}>
+                        <Text style={styles.footerText}>Moveo Driver v2.1.0</Text>
+                        <Text style={styles.footerSubText}>© 2026 Moveo Logistics</Text>
+                    </View>
+
                 </View>
             </ScrollView>
-        </SafeAreaView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: theme.background,
+        backgroundColor: COLORS.background, // Usar el fondo oscuro general
+    },
+    scrollContent: {
+        flexGrow: 1,
+        paddingBottom: 40,
     },
     header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
         paddingHorizontal: 24,
-        paddingVertical: 20,
+        paddingBottom: 32,
+        paddingTop: 10,
+        borderBottomLeftRadius: 0,
+        borderBottomRightRadius: 0,
     },
     backButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 12,
-        backgroundColor: theme.card,
-        justifyContent: 'center',
+        flexDirection: 'row',
         alignItems: 'center',
-        borderWidth: 1,
-        borderColor: theme.cardBorder,
+        marginBottom: 24,
+        alignSelf: 'flex-start',
     },
-    title: {
-        fontSize: 20,
-        fontWeight: '800',
-        color: theme.text,
+    backText: {
+        color: COLORS.textSecondary,
+        fontSize: 14,
+        marginLeft: 8,
     },
-    profileHeader: {
+    profileInfo: {
         alignItems: 'center',
-        marginTop: 10,
-        marginBottom: 40,
     },
-    avatarWrapper: {
+    avatarContainer: {
         position: 'relative',
-        marginBottom: 20,
+        marginBottom: 24,
     },
-    avatar: {
-        width: 110,
-        height: 110,
-        borderRadius: 40,
+    avatarFrame: {
+        width: 128,
+        height: 128,
+        borderRadius: 32, // Rounded-[2rem] approx
+        backgroundColor: COLORS.accent,
         justifyContent: 'center',
         alignItems: 'center',
-        overflow: 'hidden',
     },
     avatarImage: {
         width: '100%',
         height: '100%',
+        borderRadius: 32,
     },
     cameraButton: {
         position: 'absolute',
-        bottom: -5,
-        right: -5,
-        width: 38,
-        height: 38,
-        borderRadius: 15,
-        backgroundColor: theme.background,
+        bottom: 8,
+        right: 8,
+        width: 40,
+        height: 40,
+        borderRadius: 12,
+        backgroundColor: COLORS.headerStart,
+        borderWidth: 2,
+        borderColor: 'white',
         justifyContent: 'center',
         alignItems: 'center',
-        borderWidth: 3,
-        borderColor: theme.background,
+        elevation: 4,
+        shadowColor: 'black',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
     },
-    userName: {
-        fontSize: 24,
-        fontWeight: '800',
-        color: theme.text,
-    },
-    roleBadge: {
-        backgroundColor: `${theme.primary}15`,
-        paddingHorizontal: 12,
-        paddingVertical: 4,
-        borderRadius: 10,
-        marginTop: 8,
+    nameBadge: {
+        backgroundColor: '#0a1628',
+        paddingHorizontal: 16,
+        paddingVertical: 6,
+        borderRadius: 8,
         borderWidth: 1,
-        borderColor: `${theme.primary}20`,
+        borderColor: '#2a3f54',
+        marginBottom: 8,
+    },
+    nameText: {
+        color: 'white',
+        fontSize: 14,
+        fontWeight: '500',
     },
     roleText: {
-        color: theme.primary,
-        fontSize: 12,
-        fontWeight: '700',
-        letterSpacing: 1,
-    },
-    formSection: {
-        paddingHorizontal: 24,
-    },
-    sectionLabel: {
+        color: COLORS.accent,
         fontSize: 14,
         fontWeight: '700',
-        color: theme.textSecondary,
-        textTransform: 'uppercase',
         letterSpacing: 1,
-        marginBottom: 20,
+        textTransform: 'uppercase',
+    },
+    content: {
+        paddingHorizontal: 24,
+        marginTop: 24,
+    },
+    sectionTitle: {
+        color: COLORS.textSecondary,
+        fontSize: 13,
+        fontWeight: '600',
+        letterSpacing: 1,
+        marginBottom: 16,
     },
     inputGroup: {
-        marginBottom: 20,
+        marginBottom: 16,
     },
     label: {
-        color: theme.text,
+        color: 'white',
         fontSize: 14,
+        fontWeight: '500',
         marginBottom: 8,
-        fontWeight: '600',
-        opacity: 0.8,
     },
-    inputWrapper: {
+    inputContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: theme.card,
-        borderRadius: 15,
+        backgroundColor: COLORS.inputBg,
         borderWidth: 1,
-        borderColor: theme.cardBorder,
-        height: 56,
+        borderColor: COLORS.inputBorder,
+        borderRadius: 12, // rounded-xl
         paddingHorizontal: 16,
-    },
-    disabledInput: {
-        opacity: 0.6,
-        backgroundColor: 'rgba(255, 255, 255, 0.02)',
-    },
-    disabledText: {
-        color: theme.textSecondary,
-    },
-    icon: {
-        marginRight: 12,
+        height: 56,
+        gap: 12,
     },
     input: {
         flex: 1,
-        color: theme.text,
+        color: 'white',
         fontSize: 16,
-        fontWeight: '500',
     },
     saveButton: {
-        backgroundColor: theme.primary,
-        height: 56,
-        borderRadius: 15,
+        backgroundColor: COLORS.accent,
         flexDirection: 'row',
-        justifyContent: 'center',
         alignItems: 'center',
-        marginTop: 10,
-        gap: 12,
+        justifyContent: 'center',
+        height: 56,
+        borderRadius: 12,
+        marginTop: 8,
+        marginBottom: 24,
+        gap: 8,
+        shadowColor: COLORS.accent,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 6,
     },
-    buttonDisabled: {
+    disabledButton: {
         opacity: 0.7,
     },
     saveButtonText: {
         color: 'white',
         fontSize: 16,
-        fontWeight: '800',
-        letterSpacing: 1,
+        fontWeight: '600',
     },
-    dangerZone: {
-        marginTop: 40,
-        paddingHorizontal: 24,
+    securityButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: COLORS.inputBg,
+        borderWidth: 1,
+        borderColor: COLORS.inputBorder,
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 12,
+    },
+    securityButtonText: {
+        color: 'white',
+        fontSize: 15,
+        fontWeight: '500',
     },
     logoutButton: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
+        backgroundColor: '#1e2d3d',
+        borderWidth: 2,
+        borderColor: 'rgba(239, 68, 68, 0.3)', // red-500/30
+        borderRadius: 12,
         height: 56,
-        borderRadius: 15,
-        borderWidth: 1,
-        borderColor: `${theme.danger}20`,
-        backgroundColor: `${theme.danger}05`,
-        gap: 12,
+        marginBottom: 24,
     },
-    logoutButtonText: {
-        color: theme.danger,
-        fontSize: 15,
-        fontWeight: '700',
+    logoutText: {
+        color: COLORS.danger,
+        fontSize: 16,
+        fontWeight: '600',
     },
     footer: {
-        marginTop: 60,
-        marginBottom: 40,
         alignItems: 'center',
-        opacity: 0.5,
+        paddingVertical: 16,
     },
     footerText: {
-        color: theme.textSecondary,
+        color: COLORS.textSecondary,
         fontSize: 12,
-        marginTop: 10,
-        fontWeight: '600',
+        marginBottom: 4,
+    },
+    footerSubText: {
+        color: '#4b5563', // gray-600
+        fontSize: 12,
     },
 });
