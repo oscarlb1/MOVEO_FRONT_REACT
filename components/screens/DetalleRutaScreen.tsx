@@ -1,11 +1,12 @@
 import { useLocationTracker } from '@/hooks/useLocationTracker';
+import api from '@/services/api';
 import { entregaService } from '@/services/entregaService';
 import { Ruta, rutaService } from '@/services/rutaService';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, ArrowRight, Calendar, CheckCircle2, MapPin, Navigation, Truck } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Modal, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import ConfirmacionEntregaModal from '../modals/ConfirmacionEntregaModal';
 
@@ -15,6 +16,8 @@ export default function DetalleRutaScreen() {
     const [ruta, setRuta] = useState<Ruta | null>(null);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
+    const [isOptimizing, setIsOptimizing] = useState(false);
+    const [iaResult, setIaResult] = useState<{ visible: boolean; justificacion: string; success: boolean }>({ visible: false, justificacion: '', success: false });
 
     // Delivery Modal State
     const [selectedEntrega, setSelectedEntrega] = useState<{ id: number, cliente: any } | null>(null);
@@ -61,6 +64,25 @@ export default function DetalleRutaScreen() {
             Alert.alert('Éxito', `Ruta marcada como ${nuevoEstado}`);
         } else {
             Alert.alert('Error', 'No se pudo actualizar el estado de la ruta');
+        }
+    };
+
+    const handleOptimizeRoute = async () => {
+        if (!ruta) return;
+        setIsOptimizing(true);
+        setActionLoading(true);
+        try {
+            const res = await api.post(`Ruta/${ruta.id}/optimizar-ia`, {}, { timeout: 60000 });
+            const justificacion = res.data?.optimizacion?.justificacion || res.data?.justificacion || 'Ruta optimizada correctamente.';
+            setIaResult({ visible: true, justificacion, success: true });
+            await fetchRutaDetalle(ruta.id);
+        } catch (error: any) {
+            console.error('Error optimizar-ia:', error?.response?.status, JSON.stringify(error?.response?.data));
+            const msg = error?.response?.data?.error || error?.message || 'No se pudo optimizar la ruta.';
+            setIaResult({ visible: true, justificacion: msg, success: false });
+        } finally {
+            setIsOptimizing(false);
+            setActionLoading(false);
         }
     };
 
@@ -227,6 +249,8 @@ export default function DetalleRutaScreen() {
                     </TouchableOpacity>
                 )}
 
+
+
                 {/* Deliveries Section */}
                 <View style={styles.sectionHeader}>
                     <Text style={styles.sectionTitle}>Entregas Programadas</Text>
@@ -290,6 +314,36 @@ export default function DetalleRutaScreen() {
                 clienteCoords={selectedEntrega?.cliente}
                 userCoords={location}
             />
+
+            {/* Modal Resultado IA */}
+            <Modal visible={iaResult.visible} transparent animationType="fade" onRequestClose={() => setIaResult(prev => ({ ...prev, visible: false }))}>
+                <View style={styles.iaModalOverlay}>
+                    <View style={styles.iaModalContent}>
+                        {/* Icono */}
+                        <View style={[styles.iaModalIcon, { backgroundColor: iaResult.success ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)' }]}>
+                            <Text style={{ fontSize: 32 }}>{iaResult.success ? '🤖' : '⚠️'}</Text>
+                        </View>
+
+                        {/* Título */}
+                        <Text style={styles.iaModalTitle}>
+                            {iaResult.success ? 'Ruta Optimizada con IA' : 'Error al Optimizar'}
+                        </Text>
+
+                        {/* Justificación */}
+                        <ScrollView style={styles.iaModalScroll} showsVerticalScrollIndicator={false}>
+                            <Text style={styles.iaModalText}>{iaResult.justificacion}</Text>
+                        </ScrollView>
+
+                        {/* Botón */}
+                        <TouchableOpacity
+                            style={[styles.iaModalButton, { backgroundColor: iaResult.success ? '#22c55e' : '#E67E50' }]}
+                            onPress={() => setIaResult(prev => ({ ...prev, visible: false }))}
+                        >
+                            <Text style={styles.iaModalButtonText}>{iaResult.success ? 'Entendido' : 'Cerrar'}</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -442,6 +496,20 @@ const styles = StyleSheet.create({
         fontWeight: '800',
         letterSpacing: 1.5,
     },
+    iaActionButton: {
+        height: 56,
+        borderRadius: 20,
+        marginBottom: 40,
+        overflow: 'hidden',
+        borderWidth: 1,
+        borderColor: 'rgba(230, 126, 80, 0.4)',
+    },
+    iaActionButtonText: {
+        color: '#E67E50',
+        fontSize: 15,
+        fontWeight: '700',
+        letterSpacing: 1,
+    },
     disabledButton: {
         opacity: 0.7,
     },
@@ -584,5 +652,58 @@ const styles = StyleSheet.create({
     retryButtonText: {
         color: 'white',
         fontWeight: '700',
-    }
+    },
+    iaModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 24,
+    },
+    iaModalContent: {
+        backgroundColor: '#1a2d42',
+        borderRadius: 20,
+        padding: 28,
+        width: '100%',
+        maxHeight: '70%',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(230,126,80,0.3)',
+    },
+    iaModalIcon: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    iaModalTitle: {
+        color: 'white',
+        fontSize: 20,
+        fontWeight: '800',
+        marginBottom: 16,
+        textAlign: 'center',
+    },
+    iaModalScroll: {
+        maxHeight: 200,
+        width: '100%',
+        marginBottom: 20,
+    },
+    iaModalText: {
+        color: 'rgba(255,255,255,0.8)',
+        fontSize: 15,
+        lineHeight: 22,
+        textAlign: 'center',
+    },
+    iaModalButton: {
+        paddingHorizontal: 40,
+        paddingVertical: 14,
+        borderRadius: 14,
+    },
+    iaModalButtonText: {
+        color: 'white',
+        fontWeight: '700',
+        fontSize: 16,
+    },
 });

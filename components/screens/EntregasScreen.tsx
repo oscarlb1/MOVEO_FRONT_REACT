@@ -19,6 +19,7 @@ import {
     ActivityIndicator,
     Alert,
     Dimensions,
+    Image,
     Linking,
     Modal,
     Platform,
@@ -35,6 +36,8 @@ import SignatureScreen from 'react-native-signature-canvas';
 import Svg, { Circle, Defs, Path, Stop, LinearGradient as SvgGradient, Text as SvgText } from 'react-native-svg';
 
 // Servicios
+import api from '@/services/api';
+import { useAuth } from '@/store/authStore';
 import { entregaService } from '../../services/entregaService';
 import { Entrega, Ruta, rutaService } from '../../services/rutaService';
 
@@ -58,10 +61,17 @@ const COLORS = {
 
 export default function EntregasScreen() {
     const router = useRouter();
+    const { user, logout } = useAuth();
     const [loading, setLoading] = useState(true);
     const [entregas, setEntregas] = useState<Entrega[]>([]);
     const [stats, setStats] = useState({ total: 0, completed: 0, pending: 0, failed: 0 });
     const [rutaActiva, setRutaActiva] = useState<Ruta | null>(null);
+
+    // Profile & Global Modal
+    const [showProfileMenu, setShowProfileMenu] = useState(false);
+    const [showGlobalModal, setShowGlobalModal] = useState(false);
+    const [globalReportMsg, setGlobalReportMsg] = useState('');
+    const [customAlert, setCustomAlert] = useState<{ visible: boolean; title: string; message: string; type: 'success' | 'error' }>({ visible: false, title: '', message: '', type: 'success' });
 
     // Animación del mapa
     const pathProgress = useSharedValue(0);
@@ -215,6 +225,25 @@ export default function EntregasScreen() {
         if (signatureRef.current) signatureRef.current.clearSignature();
     };
 
+    const handleSendGlobalReport = async () => {
+        if (!globalReportMsg.trim()) return;
+        try {
+            setLoading(true);
+            await api.post('Notificaciones/incidencia', {
+                Titulo: 'ALERTA DE REPARTIDOR',
+                Mensaje: globalReportMsg
+            });
+            setGlobalReportMsg('');
+            setShowGlobalModal(false);
+            setCustomAlert({ visible: true, title: 'Incidencia Enviada', message: 'Tu equipo ha sido notificado.', type: 'success' });
+        } catch (e) {
+            console.error('Error enviando reporte global', e);
+            setCustomAlert({ visible: true, title: 'Error', message: 'No se pudo enviar el reporte.', type: 'error' });
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const animatedPathProps = useAnimatedProps(() => ({
         strokeDashoffset: 400 * (1 - pathProgress.value),
     }));
@@ -230,13 +259,24 @@ export default function EntregasScreen() {
                     <View style={styles.headerContent}>
                         <View style={styles.topRow}>
                             <View>
-                                <Text style={styles.headerSubtitle}>Hola, {rutaActiva?.nombreConductor || 'Conductor'}</Text>
+                                <Text style={styles.headerSubtitle}>Hola, {user?.nombre || rutaActiva?.nombreConductor || 'Conductor'}</Text>
                                 <Text style={styles.headerTitle}>Tu Ruta de Hoy</Text>
                             </View>
-                            <TouchableOpacity style={styles.avatarBtn}>
-                                <View style={styles.badgeOnline} />
-                                <View style={styles.avatarPlaceholder}><Text style={{ color: 'white' }}>JD</Text></View>
-                            </TouchableOpacity>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                <TouchableOpacity onPress={() => setShowGlobalModal(true)} style={styles.alertBtn}>
+                                    <AlertCircle size={24} color="#ef4444" />
+                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.avatarBtn} onPress={() => setShowProfileMenu(true)}>
+                                    <View style={styles.badgeOnline} />
+                                    <View style={styles.avatarPlaceholder}>
+                                        {user?.imagenUrl ? (
+                                            <Image source={{ uri: user.imagenUrl }} style={{ width: '100%', height: '100%', borderRadius: 22 }} />
+                                        ) : (
+                                            <Text style={{ color: 'white' }}>{(user?.nombre || 'JD').substring(0, 2).toUpperCase()}</Text>
+                                        )}
+                                    </View>
+                                </TouchableOpacity>
+                            </View>
                         </View>
 
                         {/* Mapa SVG Animado */}
@@ -586,6 +626,82 @@ export default function EntregasScreen() {
                     </TouchableOpacity>
                 </View>
             </Modal>
+
+            {/* MODAL INCIDENCIA GLOBAL */}
+            <Modal visible={showGlobalModal} transparent animationType="fade" onRequestClose={() => setShowGlobalModal(false)}>
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>Reportar a Todos</Text>
+                        <TextInput
+                            style={styles.textArea}
+                            multiline
+                            numberOfLines={4}
+                            placeholder="Ej: He pinchado, me retraso..."
+                            placeholderTextColor={COLORS.textSecondary}
+                            value={globalReportMsg}
+                            onChangeText={setGlobalReportMsg}
+                        />
+                        <View style={{ flexDirection: 'row', gap: 12, marginTop: 24 }}>
+                            <TouchableOpacity style={styles.btnSecondary} onPress={() => setShowGlobalModal(false)}>
+                                <Text style={styles.btnSecondaryText}>Cancelar</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.btnPrimary, { flex: 1 }]}
+                                disabled={!globalReportMsg.trim()}
+                                onPress={handleSendGlobalReport}
+                            >
+                                <Text style={styles.btnPrimaryText}>Avisar</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* PROFILE MENU POPUP */}
+            {showProfileMenu && (
+                <TouchableOpacity style={styles.profileMenuOverlay} activeOpacity={1} onPress={() => setShowProfileMenu(false)}>
+                    <View style={styles.profileMenu}>
+                        <TouchableOpacity style={styles.profileMenuItem} onPress={() => { setShowProfileMenu(false); router.push('/(tabs)/perfil'); }}>
+                            <Text style={styles.profileMenuText}>Configuración</Text>
+                        </TouchableOpacity>
+                        <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
+                        <TouchableOpacity style={styles.profileMenuItem} onPress={() => { setShowProfileMenu(false); logout(); }}>
+                            <Text style={[styles.profileMenuText, { color: COLORS.danger }]}>Cerrar Sesión</Text>
+                        </TouchableOpacity>
+                    </View>
+                </TouchableOpacity>
+            )}
+
+            {/* CUSTOM ALERT MODAL */}
+            <Modal visible={customAlert.visible} transparent animationType="fade" onRequestClose={() => setCustomAlert(prev => ({ ...prev, visible: false }))}>
+                <View style={styles.modalOverlay}>
+                    <View style={[styles.modalContent, { alignItems: 'center', paddingVertical: 32 }]}>
+                        <View style={{
+                            width: 60, height: 60, borderRadius: 30, marginBottom: 16,
+                            backgroundColor: customAlert.type === 'success' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
+                            justifyContent: 'center', alignItems: 'center',
+                        }}>
+                            {customAlert.type === 'success' ? (
+                                <CheckCircle size={32} color={COLORS.success} />
+                            ) : (
+                                <AlertCircle size={32} color={COLORS.danger} />
+                            )}
+                        </View>
+                        <Text style={[styles.modalTitle, { textAlign: 'center', marginBottom: 8 }]}>{customAlert.title}</Text>
+                        <Text style={{ color: COLORS.textSecondary, textAlign: 'center', marginBottom: 24, fontSize: 14 }}>{customAlert.message}</Text>
+                        <TouchableOpacity
+                            style={{
+                                backgroundColor: customAlert.type === 'success' ? COLORS.success : COLORS.danger,
+                                paddingHorizontal: 40, paddingVertical: 14, borderRadius: 14,
+                            }}
+                            onPress={() => setCustomAlert(prev => ({ ...prev, visible: false }))}
+                        >
+                            <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Aceptar</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
         </View>
     );
 }
@@ -626,6 +742,16 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: COLORS.textSecondary,
     },
+    alertBtn: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: 'rgba(239, 68, 68, 0.15)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(239, 68, 68, 0.3)',
+    },
     avatarBtn: {
         position: 'relative',
     },
@@ -650,6 +776,39 @@ const styles = StyleSheet.create({
         borderWidth: 2,
         borderColor: COLORS.background,
         zIndex: 1,
+    },
+    profileMenuOverlay: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.3)',
+        zIndex: 100,
+    },
+    profileMenu: {
+        position: 'absolute',
+        top: 100,
+        right: 24,
+        backgroundColor: COLORS.card,
+        borderRadius: 16,
+        padding: 8,
+        width: 200,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.5,
+        shadowRadius: 10,
+        elevation: 10,
+        borderWidth: 1,
+        borderColor: COLORS.cardBorder,
+    },
+    profileMenuItem: {
+        padding: 16,
+    },
+    profileMenuText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: '500',
     },
     mapContainer: {
         backgroundColor: 'rgba(255,255,255,0.03)',

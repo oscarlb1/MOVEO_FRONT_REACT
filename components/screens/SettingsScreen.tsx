@@ -3,8 +3,8 @@ import { useAuth } from '@/store/authStore';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Camera, ChevronLeft, ChevronRight, Mail, Phone, Save, User } from 'lucide-react-native';
-import React, { useState } from 'react';
+import { Camera, ChevronRight, Mail, Phone, Save, User } from 'lucide-react-native';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Image, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -29,7 +29,26 @@ export default function SettingsScreen() {
     const [email, setEmail] = useState(user?.email || '');
     const [telefono, setTelefono] = useState(user?.telefono || '');
     const [isSaving, setIsSaving] = useState(false);
-    const [image, setImage] = useState<string | null>(null);
+    const [image, setImage] = useState<string | null>(null); // solo para fotos nuevas de la galería
+
+    // Cargar imagen real del backend al abrir la pantalla
+    useEffect(() => {
+        const fetchProfile = async () => {
+            try {
+                const res = await api.get('Usuarios/me');
+                const data = res.data;
+                if (data.imagenUrl) {
+                    setImage(data.imagenUrl);
+                }
+                if (data.nombre) setNombre(data.nombre);
+                if (data.telefono) setTelefono(data.telefono);
+                if (data.email) setEmail(data.email);
+            } catch (e) {
+                console.log('Error fetching profile:', e);
+            }
+        };
+        fetchProfile();
+    }, []);
 
     const pickImage = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -58,12 +77,27 @@ export default function SettingsScreen() {
 
         setIsSaving(true);
         try {
-            await api.put('Usuarios/me', {
-                nombre,
-                telefono,
+            const formData = new FormData();
+            formData.append('Nombre', nombre);
+            formData.append('Telefono', telefono);
+
+            if (image && !image.startsWith('http')) {
+                const filename = image.split('/').pop() || 'avatar.jpg';
+                const match = /\.(\w+)$/.exec(filename);
+                const type = match ? `image/${match[1]}` : `image/jpeg`;
+
+                formData.append('Imagen', {
+                    uri: image,
+                    name: filename,
+                    type,
+                } as any);
+            }
+
+            const res = await api.put('Usuarios/me', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
             });
 
-            await updateUser({ nombre, telefono });
+            await updateUser({ nombre, telefono, imagenUrl: res.data.imagenUrl });
             Alert.alert('Éxito', 'Perfil actualizado correctamente');
         } catch (e: any) {
             console.error('Save failed', e);
@@ -93,8 +127,8 @@ export default function SettingsScreen() {
                             {/* Avatar */}
                             <View style={styles.avatarContainer}>
                                 <View style={styles.avatarFrame}>
-                                    {image ? (
-                                        <Image source={{ uri: image }} style={styles.avatarImage} />
+                                    {(image || user?.imagenUrl) ? (
+                                        <Image source={{ uri: image || user?.imagenUrl || '' }} style={styles.avatarImage} />
                                     ) : (
                                         <User color="white" size={64} />
                                     )}

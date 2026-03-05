@@ -20,13 +20,11 @@ import {
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     Modal,
     ScrollView,
     StatusBar,
     StyleSheet,
     Text,
-    TextInput,
     TouchableOpacity,
     View
 } from 'react-native';
@@ -46,11 +44,11 @@ interface VehiculoData {
 
 interface MantenimientoData {
     id: number;
-    fecha: string;
-    tipo: string;
-    descripcion: string;
+    vehiculoId: number;
+    fechaServicio: string;
+    tipoMantenimiento: string;
+    kilometrajeServicio: number;
     coste: number;
-    estado: string; // "PENDIENTE", "EN_PROCESO", "COMPLETADO"
 }
 
 interface ChecklistItem {
@@ -84,7 +82,7 @@ export default function VehiculoScreen() {
     const [mantenimientos, setMantenimientos] = useState<MantenimientoData[]>([]);
     const [showReportModal, setShowReportModal] = useState(false);
     const [checklistCompleted, setChecklistCompleted] = useState(false);
-    const [incidenciaText, setIncidenciaText] = useState('');
+    const [customAlert, setCustomAlert] = useState<{ visible: boolean; title: string; message: string; type: 'success' | 'error' | 'info' }>({ visible: false, title: '', message: '', type: 'info' });
 
     const [checklist, setChecklist] = useState<ChecklistItem[]>([
         { id: 1, item: "Luces funcionando", checked: false },
@@ -116,16 +114,19 @@ export default function VehiculoScreen() {
                 const vehiculoRes = await api.get(`Vehiculos/${rutaActiva.vehiculoId}`);
                 setVehiculo(vehiculoRes.data);
 
-                // 3. Obtener mantenimientos
-                const mantRes = await api.get(`Mantenimientos/vehiculo/${rutaActiva.vehiculoId}`);
-                setMantenimientos(mantRes.data);
-            } else {
-                // Si no hay ruta activa, intentamos mostrar el último vehículo usado o uno por defecto si es demo
-                // Para este caso, dejaremos null y la UI mostrará "Sin vehículo asignado"
+                // 3. Obtener mantenimientos (independiente, no bloquea la carga del vehículo)
+                try {
+                    const mantRes = await api.get(`Mantenimientos/vehiculo/${rutaActiva.vehiculoId}`);
+                    console.log('Mantenimientos cargados:', mantRes.data?.length || 0);
+                    setMantenimientos(Array.isArray(mantRes.data) ? mantRes.data : []);
+                } catch (mantError) {
+                    console.log('Error cargando mantenimientos (puede no haber):', mantError);
+                    setMantenimientos([]);
+                }
             }
         } catch (error) {
             console.error('Error cargando datos del vehículo:', error);
-            Alert.alert('Error', 'No se pudo cargar la información del vehículo.');
+            setCustomAlert({ visible: true, title: 'Error', message: 'No se pudo cargar la información del vehículo.', type: 'error' });
         } finally {
             setLoading(false);
         }
@@ -141,20 +142,7 @@ export default function VehiculoScreen() {
 
     const handleCompleteChecklist = () => {
         setChecklistCompleted(true);
-        Alert.alert('Inspección Completada', 'El registro se ha guardado correctamente.');
-        // Aquí se enviaría a la API en el futuro
-    };
-
-    const handleReportarIncidencia = () => {
-        if (!incidenciaText.trim()) {
-            Alert.alert('Error', 'Por favor describe la incidencia.');
-            return;
-        }
-        // Simulación de envío
-        console.log('Incidencia reportada:', incidenciaText);
-        setShowReportModal(false);
-        setIncidenciaText('');
-        Alert.alert('Reporte Enviado', 'El equipo de mantenimiento ha sido notificado.');
+        setCustomAlert({ visible: true, title: 'Inspección Completada', message: 'El registro se ha guardado correctamente.', type: 'success' });
     };
 
     const allChecked = checklist.every(item => item.checked);
@@ -329,18 +317,14 @@ export default function VehiculoScreen() {
                             mantenimientos.map(mant => (
                                 <View key={mant.id} style={styles.historyItem}>
                                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                                        <View style={[styles.dot, { backgroundColor: mant.estado === 'COMPLETADO' ? COLORS.success : COLORS.warning }]} />
+                                        <View style={[styles.dot, { backgroundColor: COLORS.success }]} />
                                         <View>
-                                            <Text style={styles.historyType}>{mant.tipo}</Text>
-                                            <Text style={styles.historyDate}>{new Date(mant.fecha).toLocaleDateString()}</Text>
+                                            <Text style={styles.historyType}>{mant.tipoMantenimiento}</Text>
+                                            <Text style={styles.historyDate}>{mant.fechaServicio ? new Date(mant.fechaServicio).toLocaleDateString('es-ES') : 'Sin fecha'}</Text>
                                         </View>
                                     </View>
-                                    <View style={[styles.historyBadge, {
-                                        backgroundColor: mant.estado === 'COMPLETADO' ? `${COLORS.success}20` : `${COLORS.warning}20`
-                                    }]}>
-                                        <Text style={[styles.historyBadgeText, {
-                                            color: mant.estado === 'COMPLETADO' ? COLORS.success : COLORS.warning
-                                        }]}>{mant.estado}</Text>
+                                    <View style={[styles.historyBadge, { backgroundColor: `${COLORS.accent}20` }]}>
+                                        <Text style={[styles.historyBadgeText, { color: COLORS.accent }]}>{mant.coste}€</Text>
                                     </View>
                                 </View>
                             ))
@@ -348,16 +332,6 @@ export default function VehiculoScreen() {
                             <Text style={styles.textSecondary}>No hay mantenimientos recientes.</Text>
                         )}
                     </View>
-
-                    {/* Botones Acción */}
-                    <TouchableOpacity
-                        style={styles.reportButton}
-                        onPress={() => setShowReportModal(true)}
-                        activeOpacity={0.9}
-                    >
-                        <AlertTriangle size={20} color="white" />
-                        <Text style={styles.reportButtonText}>Reportar Incidencia</Text>
-                    </TouchableOpacity>
 
                     <TouchableOpacity style={styles.contactButton} activeOpacity={0.9}>
                         <Phone size={20} color={COLORS.accent} />
@@ -368,45 +342,34 @@ export default function VehiculoScreen() {
                 </View>
             </ScrollView>
 
-            {/* Modal Reporte */}
-            <Modal
-                visible={showReportModal}
-                transparent
-                animationType="fade"
-                onRequestClose={() => setShowReportModal(false)}
-            >
+            {/* Custom Alert Modal */}
+            <Modal visible={customAlert.visible} transparent animationType="fade" onRequestClose={() => setCustomAlert(prev => ({ ...prev, visible: false }))}>
                 <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Reportar Incidencia</Text>
-                        <Text style={styles.modalDescription}>
-                            Describe el problema con el vehículo. El equipo será notificado.
-                        </Text>
-
-                        <TextInput
-                            style={styles.modalInput}
-                            placeholder="Ej: Ruido extraño en motor..."
-                            placeholderTextColor={COLORS.textSecondary}
-                            multiline
-                            numberOfLines={4}
-                            value={incidenciaText}
-                            onChangeText={setIncidenciaText}
-                            textAlignVertical="top"
-                        />
-
-                        <View style={styles.modalButtons}>
-                            <TouchableOpacity
-                                style={styles.modalCancel}
-                                onPress={() => setShowReportModal(false)}
-                            >
-                                <Text style={styles.modalCancelText}>Cancelar</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={styles.modalSend}
-                                onPress={handleReportarIncidencia}
-                            >
-                                <Text style={styles.modalSendText}>Enviar</Text>
-                            </TouchableOpacity>
+                    <View style={[styles.modalContent, { alignItems: 'center', paddingVertical: 32 }]}>
+                        <View style={{
+                            width: 60, height: 60, borderRadius: 30, marginBottom: 16,
+                            backgroundColor: customAlert.type === 'success' ? `${COLORS.success}20` : customAlert.type === 'error' ? `${COLORS.danger}20` : `${COLORS.info}20`,
+                            justifyContent: 'center', alignItems: 'center',
+                        }}>
+                            {customAlert.type === 'success' ? (
+                                <CheckCircle size={32} color={COLORS.success} />
+                            ) : customAlert.type === 'error' ? (
+                                <AlertTriangle size={32} color={COLORS.danger} />
+                            ) : (
+                                <AlertTriangle size={32} color={COLORS.info} />
+                            )}
                         </View>
+                        <Text style={[styles.modalTitle, { textAlign: 'center', marginBottom: 8 }]}>{customAlert.title}</Text>
+                        <Text style={[styles.modalDescription, { textAlign: 'center', marginBottom: 24 }]}>{customAlert.message}</Text>
+                        <TouchableOpacity
+                            style={{
+                                backgroundColor: customAlert.type === 'success' ? COLORS.success : customAlert.type === 'error' ? COLORS.danger : COLORS.accent,
+                                paddingHorizontal: 40, paddingVertical: 14, borderRadius: 14,
+                            }}
+                            onPress={() => setCustomAlert(prev => ({ ...prev, visible: false }))}
+                        >
+                            <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Aceptar</Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
             </Modal>
