@@ -29,8 +29,7 @@ Ngrok es necesario para que tu iPhone/Android pueda ver el backend de tu ordenad
 ### Paso B: Configurar Authtoken
 Ejecuta este comando en la terminal (asegúrate de usar la versión más reciente):
 ```bash
-npx ngrok@latest config add-authtoken TU_TOKEN_AQUÍ
-```
+npx ngrok@latest config add-authtoken 39lHUrBb0OUeV26QFM4RixaqkMk_535XVSzUSpr2hcHc3Kbzp
 
 ### Paso C: Iniciar el Túnel
 Cada vez que vayas a programar, abre una terminal y lanza el túnel sobre el puerto **HTTP** del backend:

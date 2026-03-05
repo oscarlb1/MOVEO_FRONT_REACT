@@ -1,3 +1,4 @@
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
@@ -63,6 +64,11 @@ export default function EntregasScreen() {
     const [stats, setStats] = useState({ total: 0, completed: 0, pending: 0, failed: 0 });
     const [rutaActiva, setRutaActiva] = useState<Ruta | null>(null);
 
+    // Camera stats
+    const [permission, requestPermission] = useCameraPermissions();
+    const [scanned, setScanned] = useState(false);
+    const [validatingQr, setValidatingQr] = useState(false);
+
     // Animación del mapa
     const pathProgress = useSharedValue(0);
 
@@ -100,14 +106,28 @@ export default function EntregasScreen() {
             const rutas = await rutaService.getMisRutas();
 
             if (rutas && rutas.length > 0) {
-                // Obtenemos la primera ruta activa (o la más reciente)
-                const rutaId = rutas[0].id;
-                const detalle = await rutaService.getRutaDetalle(rutaId);
-                setRutaActiva(detalle);
+                // Buscamos preferentemente una ruta que tenga entregas o esté en progreso
+                // Para esto necesitamos iterarlas y pedir el detalle, o coger la de estado EN_PROGRESO/PENDIENTE
+                let rutaSeleccionada = rutas[0];
+                let detalleSeleccionado = await rutaService.getRutaDetalle(rutaSeleccionada.id);
 
-                if (detalle.entregas) {
+                // Si la primera no tiene entregas, intentamos buscar una que sí tenga
+                if (!detalleSeleccionado.entregas || detalleSeleccionado.entregas.length === 0) {
+                    for (let i = 1; i < rutas.length; i++) {
+                        const testDetalle = await rutaService.getRutaDetalle(rutas[i].id);
+                        if (testDetalle.entregas && testDetalle.entregas.length > 0) {
+                            detalleSeleccionado = testDetalle;
+                            rutaSeleccionada = rutas[i];
+                            break;
+                        }
+                    }
+                }
+
+                setRutaActiva(detalleSeleccionado);
+
+                if (detalleSeleccionado.entregas) {
                     // Ordenar por orden de parada
-                    const ordenadas = [...detalle.entregas].sort((a, b) => a.ordenParada - b.ordenParada);
+                    const ordenadas = [...detalleSeleccionado.entregas].sort((a, b) => a.ordenParada - b.ordenParada);
                     setEntregas(ordenadas);
                     calcularEstadisticas(ordenadas);
                 }
@@ -135,6 +155,32 @@ export default function EntregasScreen() {
     const handleSelectEntrega = (entrega: Entrega) => {
         setSelectedEntrega(entrega);
         setShowDetailModal(true);
+    };
+
+    const handleBarCodeScanned = async ({ type, data }: { type: string; data: string }) => {
+        if (!selectedEntrega || validatingQr) return;
+        setScanned(true);
+        setValidatingQr(true);
+
+        const idEntrega = selectedEntrega.id;
+        try {
+            const isValid = await entregaService.validarQrEntrega(idEntrega, data);
+
+            if (isValid) {
+                setShowQRModal(false);
+                Alert.alert('¡Éxito!', 'Paquete validado correctamente. Procediendo a captura de firma.');
+                setTimeout(() => setShowPODModal(true), 500);
+            } else {
+                Alert.alert('Error', 'El código QR es incorrecto o no pertenece a esta entrega.', [
+                    { text: 'OK', onPress: () => setScanned(false) }
+                ]);
+            }
+        } catch (error) {
+            Alert.alert('Error', 'No se pudo validar el código QR.');
+            setScanned(false);
+        } finally {
+            setValidatingQr(false);
+        }
     };
 
     // Acciones
@@ -450,31 +496,46 @@ export default function EntregasScreen() {
                                         <Phone size={24} color={COLORS.info} />
                                         <Text style={styles.quickBtnText}>Llamar</Text>
                                     </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={styles.quickBtn}
-                                        onPress={() => { setShowDetailModal(false); setShowQRModal(true); }}
-                                    >
-                                        <Scan size={24} color={COLORS.warning} />
-                                        <Text style={styles.quickBtnText}>Scan QR</Text>
-                                    </TouchableOpacity>
+                                    {selectedEntrega.estado !== 'ENTREGADO' && selectedEntrega.estado !== 'FALLIDO' && (
+                                        <TouchableOpacity
+                                            style={styles.quickBtn}
+                                            onPress={async () => {
+                                                setShowDetailModal(false);
+                                                if (!permission?.granted) {
+                                                    const res = await requestPermission();
+                                                    if (!res.granted) {
+                                                        Alert.alert('Permiso denegado', 'Se necesita acceso a la cámara para escanear el QR.');
+                                                        return;
+                                                    }
+                                                }
+                                                setScanned(false);
+                                                setShowQRModal(true);
+                                            }}
+                                        >
+                                            <Scan size={24} color={COLORS.warning} />
+                                            <Text style={styles.quickBtnText}>Scan QR</Text>
+                                        </TouchableOpacity>
+                                    )}
                                 </View>
 
                                 {/* Status Actions */}
-                                <View style={styles.statusActions}>
-                                    <TouchableOpacity
-                                        style={styles.btnPrimary}
-                                        onPress={() => { setShowDetailModal(false); setShowPODModal(true); }}
-                                    >
-                                        <Text style={styles.btnPrimaryText}>Completar Entrega</Text>
-                                    </TouchableOpacity>
+                                {selectedEntrega.estado !== 'ENTREGADO' && selectedEntrega.estado !== 'FALLIDO' && (
+                                    <View style={styles.statusActions}>
+                                        <TouchableOpacity
+                                            style={styles.btnPrimary}
+                                            onPress={() => { setShowDetailModal(false); setShowPODModal(true); }}
+                                        >
+                                            <Text style={styles.btnPrimaryText}>Completar Entrega</Text>
+                                        </TouchableOpacity>
 
-                                    <TouchableOpacity
-                                        style={styles.btnDanger}
-                                        onPress={() => { setShowDetailModal(false); setShowFailModal(true); }}
-                                    >
-                                        <Text style={styles.btnDangerText}>Marcar como Fallida</Text>
-                                    </TouchableOpacity>
-                                </View>
+                                        <TouchableOpacity
+                                            style={styles.btnDanger}
+                                            onPress={() => { setShowDetailModal(false); setShowFailModal(true); }}
+                                        >
+                                            <Text style={styles.btnDangerText}>Marcar como Fallida</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                )}
                             </>
                         )}
                     </View>
@@ -571,15 +632,44 @@ export default function EntregasScreen() {
             </Modal>
 
             {/* MODAL QR */}
-            <Modal visible={showQRModal} animationType="fade">
-                <View style={{ flex: 1, backgroundColor: 'black', alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ color: 'white', fontSize: 18, marginBottom: 20 }}>Escanea el código del paquete</Text>
-                    <View style={styles.qrFrame}>
-                        <View style={styles.scanLine} />
+            <Modal visible={showQRModal} animationType="fade" onRequestClose={() => setShowQRModal(false)}>
+                <View style={{ flex: 1, backgroundColor: 'black' }}>
+                    {permission?.granted ? (
+                        <CameraView
+                            style={StyleSheet.absoluteFillObject}
+                            facing="back"
+                            onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+                            barcodeScannerSettings={{
+                                barcodeTypes: ["qr"],
+                            }}
+                        />
+                    ) : (
+                        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                            <Text style={{ color: 'white' }}>Solicitando permisos de cámara...</Text>
+                        </View>
+                    )}
+
+                    <View style={[StyleSheet.absoluteFillObject, { alignItems: 'center', justifyContent: 'center' }]} pointerEvents="none">
+                        <Text style={{ color: 'white', fontSize: 18, marginBottom: 20, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}>
+                            Escanea el código del paquete
+                        </Text>
+                        <View style={styles.qrFrame}>
+                            <View style={styles.scanLine} />
+                        </View>
+                        {validatingQr ? (
+                            <View style={{ marginTop: 20, alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)', padding: 15, borderRadius: 8 }}>
+                                <ActivityIndicator size="large" color={COLORS.primary} />
+                                <Text style={{ color: 'white', marginTop: 10 }}>Validando paquete...</Text>
+                            </View>
+                        ) : (
+                            <Text style={{ color: COLORS.primary, marginTop: 20, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}>
+                                Esperando: {selectedEntrega?.codigoQr || '...'}
+                            </Text>
+                        )}
                     </View>
-                    <Text style={{ color: COLORS.primary, marginTop: 20 }}>Esperando: {selectedEntrega?.codigoQr || '...'}</Text>
+
                     <TouchableOpacity
-                        style={styles.closeQR}
+                        style={{ position: 'absolute', top: 40, right: 20, backgroundColor: 'rgba(0,0,0,0.5)', padding: 8, borderRadius: 20 }}
                         onPress={() => setShowQRModal(false)}
                     >
                         <X size={32} color="white" />
