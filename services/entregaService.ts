@@ -17,5 +17,15 @@ export const entregaService = {
             console.error('Error updating delivery status', error);
             return false;
         }
+    },
+
+    async validarQrEntrega(idEntrega: number, codigoQr: string): Promise<boolean> {
+        try {
+            const response = await api.post(`Entregas/${idEntrega}/validar-qr`, { codigoQr });
+            return response.status === 200;
+        } catch (error) {
+            console.error('Error al validar el código QR:', error);
+            return false;
+        }
     }
 };

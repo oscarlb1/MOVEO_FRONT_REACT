@@ -6,7 +6,7 @@ import { storageAdapter } from './storageAdapter';
 
 // --- CONFIGURATION ---
 // If you are using ngrok, paste the URL here (e.g., 'https://xxxx.ngrok-free.app')
-const NGROK_URL: string = 'https://uncooperative-nonanachronously-fiona.ngrok-free.dev';
+const NGROK_URL: string = 'https://distinguishably-busiest-brayan.ngrok-free.dev';
 // ---------------------
 
 // Dynamic API URL determination
