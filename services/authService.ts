@@ -39,8 +39,16 @@ export const authService = {
             };
 
             const rol = getClaim(decoded, ['role']) || decoded.role;
-            if (rol !== 'REPARTIDOR') {
-                throw new Error('Acceso denegado: Se requiere rol de REPARTIDOR');
+            const rolUpper = (rol || '').toUpperCase();
+            if (rolUpper !== 'REPARTIDOR') {
+                const isAdmin = rolUpper === 'ADMINISTRADOR' || rolUpper === 'ADMIN';
+                const adminError = new Error(
+                    isAdmin
+                        ? 'Los administradores deben acceder a través de la página web.'
+                        : 'Esta aplicación es de uso exclusivo para repartidores.'
+                );
+                (adminError as any).code = isAdmin ? 'ADMIN_NOT_ALLOWED' : 'ROLE_NOT_ALLOWED';
+                throw adminError;
             }
 
             const userData: User = {
@@ -57,7 +65,10 @@ export const authService = {
 
             return { user: userData, token: tokenDeAcceso };
         } catch (error: any) {
-            console.error("Login error details:", error);
+            // Only log non-role errors to avoid the red error bar for expected access restrictions
+            if (error.code !== 'ADMIN_NOT_ALLOWED' && error.code !== 'ROLE_NOT_ALLOWED') {
+                console.error("Login error details:", error);
+            }
             throw error; // Re-throw to be handled by UI
         }
     },
