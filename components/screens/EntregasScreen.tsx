@@ -4,7 +4,6 @@ import { useRouter } from 'expo-router';
 import {
     AlertCircle,
     Box,
-    Camera,
     CheckCircle,
     ChevronRight,
     Clock,
@@ -32,8 +31,10 @@ import {
 } from 'react-native';
 import Animated, { useAnimatedProps, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import SignatureScreen from 'react-native-signature-canvas';
 import Svg, { Circle, Defs, Path, Stop, LinearGradient as SvgGradient, Text as SvgText } from 'react-native-svg';
+
+// Componentes
+import PodModal from '../modals/PodModal';
 
 // Servicios
 import { entregaService } from '../../services/entregaService';
@@ -68,6 +69,7 @@ export default function EntregasScreen() {
     const [permission, requestPermission] = useCameraPermissions();
     const [scanned, setScanned] = useState(false);
     const [validatingQr, setValidatingQr] = useState(false);
+    const isProcessingQr = useRef(false);
 
     // Animación del mapa
     const pathProgress = useSharedValue(0);
@@ -78,11 +80,6 @@ export default function EntregasScreen() {
     const [showPODModal, setShowPODModal] = useState(false);
     const [showFailModal, setShowFailModal] = useState(false);
     const [showQRModal, setShowQRModal] = useState(false);
-
-    // POD state
-    const signatureRef = useRef<any>(null);
-    const [signature, setSignature] = useState<string | null>(null);
-    const [podNotes, setPodNotes] = useState('');
 
     // Fail state
     const [failReason, setFailReason] = useState<string | null>(null);
@@ -158,7 +155,10 @@ export default function EntregasScreen() {
     };
 
     const handleBarCodeScanned = async ({ type, data }: { type: string; data: string }) => {
-        if (!selectedEntrega || validatingQr) return;
+        if (!selectedEntrega || isProcessingQr.current) return;
+
+        // Bloqueo síncrono para evitar 10 escaneos en el primer frame
+        isProcessingQr.current = true;
         setScanned(true);
         setValidatingQr(true);
 
@@ -168,16 +168,36 @@ export default function EntregasScreen() {
 
             if (isValid) {
                 setShowQRModal(false);
-                Alert.alert('¡Éxito!', 'Paquete validado correctamente. Procediendo a captura de firma.');
-                setTimeout(() => setShowPODModal(true), 500);
+                Alert.alert('¡Éxito!', 'Paquete validado correctamente. Procediendo a captura de firma.', [
+                    {
+                        text: 'OK',
+                        onPress: () => {
+                            isProcessingQr.current = false;
+                            setTimeout(() => setShowPODModal(true), 500);
+                        }
+                    }
+                ]);
             } else {
                 Alert.alert('Error', 'El código QR es incorrecto o no pertenece a esta entrega.', [
-                    { text: 'OK', onPress: () => setScanned(false) }
+                    {
+                        text: 'OK',
+                        onPress: () => {
+                            setScanned(false);
+                            isProcessingQr.current = false;
+                        }
+                    }
                 ]);
             }
         } catch (error) {
-            Alert.alert('Error', 'No se pudo validar el código QR.');
-            setScanned(false);
+            Alert.alert('Error', 'No se pudo validar el código QR.', [
+                {
+                    text: 'OK',
+                    onPress: () => {
+                        setScanned(false);
+                        isProcessingQr.current = false;
+                    }
+                }
+            ]);
         } finally {
             setValidatingQr(false);
         }
@@ -195,23 +215,18 @@ export default function EntregasScreen() {
             Alert.alert('Ubicación no disponible', 'Esta entrega no tiene coordenadas GPS válidas.');
         }
     };
-
     const handleCall = (phone: string) => {
         Linking.openURL(`tel:${phone}`);
     };
 
-    const handleSignatureOK = (signatureBg: string) => {
-        setSignature(signatureBg);
-    };
-
-    const handleCompleteDelivery = async () => {
+    const handleCompleteDelivery = async (signatureBg: string | null, finalNotes: string) => {
         if (selectedEntrega) {
             try {
                 setLoading(true);
                 const success = await entregaService.updateEstadoEntrega(selectedEntrega.id, {
                     Estado: 'ENTREGADO',
-                    Notas: podNotes,
-                    FirmaDigitalUrl: signature || undefined
+                    Notas: finalNotes,
+                    FirmaDigitalUrl: signatureBg || undefined
                 });
 
                 if (success) {
@@ -228,7 +243,6 @@ export default function EntregasScreen() {
         }
         setShowPODModal(false);
         setShowDetailModal(false);
-        resetPOD();
     };
 
     const handleFailDelivery = async () => {
@@ -255,81 +269,71 @@ export default function EntregasScreen() {
         setShowDetailModal(false);
     };
 
-    const resetPOD = () => {
-        setSignature(null);
-        setPodNotes('');
-        if (signatureRef.current) signatureRef.current.clearSignature();
-    };
-
     const animatedPathProps = useAnimatedProps(() => ({
         strokeDashoffset: 400 * (1 - pathProgress.value),
     }));
 
     return (
-        <View style={styles.container}>
-            {/* Header Dashboard */}
+        <SafeAreaView style={styles.container} edges={['top']}>
+            {/* ENCABEZADO CON MAPA SIMULADO */}
             <LinearGradient
                 colors={[COLORS.background, '#0a1628']}
                 style={styles.header}
             >
-                <SafeAreaView edges={['top']}>
-                    <View style={styles.headerContent}>
-                        <View style={styles.topRow}>
-                            <View>
-                                <Text style={styles.headerSubtitle}>Hola, {rutaActiva?.nombreConductor || 'Conductor'}</Text>
-                                <Text style={styles.headerTitle}>Tu Ruta de Hoy</Text>
-                            </View>
-                            <TouchableOpacity style={styles.avatarBtn}>
-                                <View style={styles.badgeOnline} />
-                                <View style={styles.avatarPlaceholder}><Text style={{ color: 'white' }}>JD</Text></View>
-                            </TouchableOpacity>
-                        </View>
-
-                        {/* Mapa SVG Animado */}
-                        <View style={styles.mapContainer}>
-                            <Svg height="120" width={width - 48} viewBox="0 0 300 120">
-                                <Defs>
-                                    <SvgGradient id="grad" x1="0%" y1="0%" x2="100%" y2="0%">
-                                        <Stop offset="0%" stopColor={COLORS.accent} />
-                                        <Stop offset="100%" stopColor={COLORS.primary} />
-                                    </SvgGradient>
-                                </Defs>
-                                {/* Ruta trazada */}
-                                <AnimatedPath
-                                    d="M20,60 Q60,20 100,60 T180,60 T280,60"
-                                    stroke="url(#grad)"
-                                    strokeWidth="3"
-                                    fill="none"
-                                    strokeDasharray="400"
-                                    animatedProps={animatedPathProps}
-                                />
-                                {/* Puntos de entrega */}
-                                <Circle cx="20" cy="60" r="4" fill={COLORS.accent} />
-                                <Circle cx="100" cy="60" r="4" fill="white" />
-                                <Circle cx="180" cy="60" r="4" fill="white" />
-                                <Circle cx="280" cy="60" r="4" fill={COLORS.primary} />
-
-                                <SvgText x="10" y="80" fill={COLORS.textSecondary} fontSize="10" fontWeight="bold">Origen</SvgText>
-                                <SvgText x="260" y="80" fill={COLORS.textSecondary} fontSize="10" fontWeight="bold">Destino</SvgText>
-                            </Svg>
-                        </View>
-
-                        <View style={styles.statsGrid}>
-                            <View style={styles.statCard}>
-                                <Text style={styles.statValue}>{stats.total}</Text>
-                                <Text style={styles.statLabel}>Total</Text>
-                            </View>
-                            <View style={[styles.statCard, { borderLeftWidth: 1, borderLeftColor: 'rgba(255,255,255,0.1)' }]}>
-                                <Text style={[styles.statValue, { color: COLORS.success }]}>{stats.completed}</Text>
-                                <Text style={styles.statLabel}>Éxito</Text>
-                            </View>
-                            <View style={[styles.statCard, { borderLeftWidth: 1, borderLeftColor: 'rgba(255,255,255,0.1)' }]}>
-                                <Text style={[styles.statValue, { color: COLORS.primary }]}>{stats.pending}</Text>
-                                <Text style={styles.statLabel}>Pend.</Text>
-                            </View>
-                        </View>
+                <View style={styles.topRow}>
+                    <View>
+                        <Text style={styles.headerSubtitle}>Hola, {rutaActiva?.nombreConductor || 'Conductor'}</Text>
+                        <Text style={styles.headerTitle}>Tu Ruta de Hoy</Text>
                     </View>
-                </SafeAreaView>
+                    <TouchableOpacity style={styles.avatarBtn}>
+                        <View style={styles.badgeOnline} />
+                        <View style={styles.avatarPlaceholder}><Text style={{ color: 'white' }}>JD</Text></View>
+                    </TouchableOpacity>
+                </View>
+
+                {/* Mapa SVG Animado */}
+                <View style={styles.mapContainer}>
+                    <Svg height="120" width={width - 48} viewBox="0 0 300 120">
+                        <Defs>
+                            <SvgGradient id="grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                <Stop offset="0%" stopColor={COLORS.accent} />
+                                <Stop offset="100%" stopColor={COLORS.primary} />
+                            </SvgGradient>
+                        </Defs>
+                        {/* Ruta trazada */}
+                        <AnimatedPath
+                            d="M20,60 Q60,20 100,60 T180,60 T280,60"
+                            stroke="url(#grad)"
+                            strokeWidth="3"
+                            fill="none"
+                            strokeDasharray="400"
+                            animatedProps={animatedPathProps}
+                        />
+                        {/* Puntos de entrega */}
+                        <Circle cx="20" cy="60" r="4" fill={COLORS.accent} />
+                        <Circle cx="100" cy="60" r="4" fill="white" />
+                        <Circle cx="180" cy="60" r="4" fill="white" />
+                        <Circle cx="280" cy="60" r="4" fill={COLORS.primary} />
+
+                        <SvgText x="10" y="80" fill={COLORS.textSecondary} fontSize="10" fontWeight="bold">Origen</SvgText>
+                        <SvgText x="260" y="80" fill={COLORS.textSecondary} fontSize="10" fontWeight="bold">Destino</SvgText>
+                    </Svg>
+                </View>
+
+                <View style={styles.statsGrid}>
+                    <View style={styles.statCard}>
+                        <Text style={styles.statValue}>{stats.total}</Text>
+                        <Text style={styles.statLabel}>Total</Text>
+                    </View>
+                    <View style={[styles.statCard, { borderLeftWidth: 1, borderLeftColor: 'rgba(255,255,255,0.1)' }]}>
+                        <Text style={[styles.statValue, { color: COLORS.success }]}>{stats.completed}</Text>
+                        <Text style={styles.statLabel}>Éxito</Text>
+                    </View>
+                    <View style={[styles.statCard, { borderLeftWidth: 1, borderLeftColor: 'rgba(255,255,255,0.1)' }]}>
+                        <Text style={[styles.statValue, { color: COLORS.primary }]}>{stats.pending}</Text>
+                        <Text style={styles.statLabel}>Pend.</Text>
+                    </View>
+                </View>
             </LinearGradient>
 
             {/* Listado */}
@@ -508,6 +512,7 @@ export default function EntregasScreen() {
                                                         return;
                                                     }
                                                 }
+                                                isProcessingQr.current = false;
                                                 setScanned(false);
                                                 setShowQRModal(true);
                                             }}
@@ -542,58 +547,12 @@ export default function EntregasScreen() {
                 </View>
             </Modal>
 
-            {/* MODAL POD */}
-            <Modal visible={showPODModal} animationType="slide" onRequestClose={() => setShowPODModal(false)}>
-                <View style={styles.fullScreenModal}>
-                    <View style={styles.modalHeader}>
-                        <Text style={styles.modalTitle}>Prueba de Entrega (POD)</Text>
-                        <TouchableOpacity onPress={() => setShowPODModal(false)}>
-                            <X size={24} color={COLORS.text} />
-                        </TouchableOpacity>
-                    </View>
-
-                    <ScrollView contentContainerStyle={{ padding: 24 }}>
-                        <Text style={styles.sectionHeader}>Firma del Cliente</Text>
-                        <View style={styles.signatureContainer}>
-                            <SignatureScreen
-                                ref={signatureRef}
-                                onOK={handleSignatureOK}
-                                webStyle={`.m-signature-pad--footer {display: none; margin: 0px;}`}
-                                autoClear={false}
-                                imageType="image/png"
-                            />
-                            {/* Overlay button to clear manually if standard UI hidden */}
-                            <TouchableOpacity
-                                style={styles.clearSignatureBtn}
-                                onPress={() => signatureRef.current?.clearSignature()}
-                            >
-                                <Text style={styles.clearSignatureText}>Limpiar</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        <Text style={styles.sectionHeader}>Foto (Opcional)</Text>
-                        <TouchableOpacity style={styles.photoUploadBtn}>
-                            <Camera size={24} color={COLORS.textSecondary} />
-                            <Text style={styles.photoText}>Tomar Foto del Paquete</Text>
-                        </TouchableOpacity>
-
-                        <Text style={styles.sectionHeader}>Notas</Text>
-                        <TextInput
-                            style={styles.textArea}
-                            multiline
-                            numberOfLines={4}
-                            placeholder="Ej: Entregado en portería..."
-                            placeholderTextColor={COLORS.textSecondary}
-                            value={podNotes}
-                            onChangeText={setPodNotes}
-                        />
-
-                        <TouchableOpacity style={[styles.btnPrimary, { marginTop: 32 }]} onPress={handleCompleteDelivery}>
-                            <Text style={styles.btnPrimaryText}>Confirmar Entrega</Text>
-                        </TouchableOpacity>
-                    </ScrollView>
-                </View>
-            </Modal>
+            {/* MODAL POD (Extraído a componente) */}
+            <PodModal
+                visible={showPODModal}
+                onClose={() => setShowPODModal(false)}
+                onComplete={handleCompleteDelivery}
+            />
 
             {/* MODAL FALLO */}
             <Modal visible={showFailModal} transparent animationType="fade" onRequestClose={() => setShowFailModal(false)}>
@@ -629,10 +588,10 @@ export default function EntregasScreen() {
                         </View>
                     </View>
                 </View>
-            </Modal>
+            </Modal >
 
             {/* MODAL QR */}
-            <Modal visible={showQRModal} animationType="fade" onRequestClose={() => setShowQRModal(false)}>
+            < Modal visible={showQRModal} animationType="fade" onRequestClose={() => setShowQRModal(false)}>
                 <View style={{ flex: 1, backgroundColor: 'black' }}>
                     {permission?.granted ? (
                         <CameraView
@@ -675,8 +634,8 @@ export default function EntregasScreen() {
                         <X size={32} color="white" />
                     </TouchableOpacity>
                 </View>
-            </Modal>
-        </View>
+            </Modal >
+        </SafeAreaView >
     );
 }
 
@@ -695,7 +654,8 @@ const styles = StyleSheet.create({
         backgroundColor: COLORS.background,
     },
     header: {
-        padding: 24,
+        paddingHorizontal: 24,
+        paddingTop: Platform.OS === 'android' ? 10 : 0,
         paddingBottom: 40,
         borderBottomLeftRadius: 32,
         borderBottomRightRadius: 32,
@@ -958,7 +918,9 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 32,
+        marginBottom: 10,
+        paddingHorizontal: 24,
+        paddingTop: Platform.OS === 'android' ? 20 : 10,
     },
     modalTitle: {
         fontSize: 20,
