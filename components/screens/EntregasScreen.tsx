@@ -33,8 +33,8 @@ import {
 import Animated, { useAnimatedProps, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Circle, Defs, Path, Stop, LinearGradient as SvgGradient, Text as SvgText } from 'react-native-svg';
-
 // Componentes
+import IncidenciasModal from '../modals/IncidenciasModal';
 import PodModal from '../modals/PodModal';
 
 // Servicios
@@ -72,7 +72,6 @@ export default function EntregasScreen() {
     // Profile & Global Modal
     const [showProfileMenu, setShowProfileMenu] = useState(false);
     const [showGlobalModal, setShowGlobalModal] = useState(false);
-    const [globalReportMsg, setGlobalReportMsg] = useState('');
     const [customAlert, setCustomAlert] = useState<{ visible: boolean; title: string; message: string; type: 'success' | 'error' }>({ visible: false, title: '', message: '', type: 'success' });
 
     // Camera stats
@@ -279,20 +278,18 @@ export default function EntregasScreen() {
         setShowDetailModal(false);
     };
 
-    const handleSendGlobalReport = async () => {
-        if (!globalReportMsg.trim()) return;
+    const handleSendGlobalReport = async (message: string) => {
         try {
             setLoading(true);
             await api.post('Notificaciones/incidencia', {
                 Titulo: 'ALERTA DE REPARTIDOR',
-                Mensaje: globalReportMsg
+                Mensaje: message
             });
-            setGlobalReportMsg('');
-            setShowGlobalModal(false);
             setCustomAlert({ visible: true, title: 'Incidencia Enviada', message: 'Tu equipo ha sido notificado.', type: 'success' });
         } catch (e) {
             console.error('Error enviando reporte global', e);
             setCustomAlert({ visible: true, title: 'Error', message: 'No se pudo enviar el reporte.', type: 'error' });
+            throw e; // Propagar para que el modal maneje el estado de carga
         } finally {
             setLoading(false);
         }
@@ -676,6 +673,28 @@ export default function EntregasScreen() {
                     </TouchableOpacity>
                 </View>
             </Modal>
+
+            {/* MODAL INCIDENCIA GLOBAL */}
+            <IncidenciasModal
+                visible={showGlobalModal}
+                onClose={() => setShowGlobalModal(false)}
+                onSend={handleSendGlobalReport}
+            />
+
+            {/* PROFILE MENU POPUP */}
+            {showProfileMenu && (
+                <TouchableOpacity style={styles.profileMenuOverlay} activeOpacity={1} onPress={() => setShowProfileMenu(false)}>
+                    <View style={styles.profileMenu}>
+                        <TouchableOpacity style={styles.profileMenuItem} onPress={() => { setShowProfileMenu(false); router.push('/(tabs)/perfil'); }}>
+                            <Text style={styles.profileMenuText}>Configuración</Text>
+                        </TouchableOpacity>
+                        <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
+                        <TouchableOpacity style={styles.profileMenuItem} onPress={() => { setShowProfileMenu(false); logout(); }}>
+                            <Text style={[styles.profileMenuText, { color: COLORS.danger }]}>Cerrar Sesión</Text>
+                        </TouchableOpacity>
+                    </View>
+                </TouchableOpacity>
+            )}
             {/* CUSTOM ALERT MODAL */}
             <Modal visible={customAlert.visible} transparent animationType="fade" onRequestClose={() => setCustomAlert(prev => ({ ...prev, visible: false }))}>
                 <View style={styles.modalOverlay}>
