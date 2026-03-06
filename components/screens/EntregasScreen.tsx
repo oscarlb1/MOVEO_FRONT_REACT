@@ -34,6 +34,8 @@ import Animated, { useAnimatedProps, useSharedValue, withDelay, withTiming } fro
 import { SafeAreaView } from 'react-native-safe-area-context';
 import SignatureScreen from 'react-native-signature-canvas';
 import Svg, { Circle, Defs, Path, Stop, LinearGradient as SvgGradient, Text as SvgText } from 'react-native-svg';
+// Componentes
+import IncidenciasModal from '../modals/IncidenciasModal';
 
 // Servicios
 import api from '@/services/api';
@@ -70,7 +72,6 @@ export default function EntregasScreen() {
     // Profile & Global Modal
     const [showProfileMenu, setShowProfileMenu] = useState(false);
     const [showGlobalModal, setShowGlobalModal] = useState(false);
-    const [globalReportMsg, setGlobalReportMsg] = useState('');
     const [customAlert, setCustomAlert] = useState<{ visible: boolean; title: string; message: string; type: 'success' | 'error' }>({ visible: false, title: '', message: '', type: 'success' });
 
     // Animación del mapa
@@ -225,20 +226,18 @@ export default function EntregasScreen() {
         if (signatureRef.current) signatureRef.current.clearSignature();
     };
 
-    const handleSendGlobalReport = async () => {
-        if (!globalReportMsg.trim()) return;
+    const handleSendGlobalReport = async (message: string) => {
         try {
             setLoading(true);
             await api.post('Notificaciones/incidencia', {
                 Titulo: 'ALERTA DE REPARTIDOR',
-                Mensaje: globalReportMsg
+                Mensaje: message
             });
-            setGlobalReportMsg('');
-            setShowGlobalModal(false);
             setCustomAlert({ visible: true, title: 'Incidencia Enviada', message: 'Tu equipo ha sido notificado.', type: 'success' });
         } catch (e) {
             console.error('Error enviando reporte global', e);
             setCustomAlert({ visible: true, title: 'Error', message: 'No se pudo enviar el reporte.', type: 'error' });
+            throw e; // Propagar para que el modal maneje el estado de carga
         } finally {
             setLoading(false);
         }
@@ -628,34 +627,11 @@ export default function EntregasScreen() {
             </Modal>
 
             {/* MODAL INCIDENCIA GLOBAL */}
-            <Modal visible={showGlobalModal} transparent animationType="fade" onRequestClose={() => setShowGlobalModal(false)}>
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Reportar a Todos</Text>
-                        <TextInput
-                            style={styles.textArea}
-                            multiline
-                            numberOfLines={4}
-                            placeholder="Ej: He pinchado, me retraso..."
-                            placeholderTextColor={COLORS.textSecondary}
-                            value={globalReportMsg}
-                            onChangeText={setGlobalReportMsg}
-                        />
-                        <View style={{ flexDirection: 'row', gap: 12, marginTop: 24 }}>
-                            <TouchableOpacity style={styles.btnSecondary} onPress={() => setShowGlobalModal(false)}>
-                                <Text style={styles.btnSecondaryText}>Cancelar</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity
-                                style={[styles.btnPrimary, { flex: 1 }]}
-                                disabled={!globalReportMsg.trim()}
-                                onPress={handleSendGlobalReport}
-                            >
-                                <Text style={styles.btnPrimaryText}>Avisar</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </View>
-            </Modal>
+            <IncidenciasModal
+                visible={showGlobalModal}
+                onClose={() => setShowGlobalModal(false)}
+                onSend={handleSendGlobalReport}
+            />
 
             {/* PROFILE MENU POPUP */}
             {showProfileMenu && (
