@@ -7,21 +7,21 @@ import { storageAdapter } from './storageAdapter';
 
 // --- CONFIGURATION ---
 // If you are using ngrok, paste the URL here (e.g., 'https://xxxx.ngrok-free.app')
-const NGROK_URL: string = 'https://distinguishably-busiest-brayan.ngrok-free.dev';
+const NGROK_URL: string = 'https://uncooperative-nonanachronously-fiona.ngrok-free.dev';
 // ---------------------
 
-// Dynamic API URL determination
 const getApiUrl = () => {
     // Priority 1: Manual Ngrok URL
     if (NGROK_URL) {
-        return NGROK_URL.endsWith('/') ? `${NGROK_URL}api/` : `${NGROK_URL}/api/`;
+        const cleanUrl = NGROK_URL.endsWith('/') ? NGROK_URL.slice(0, -1) : NGROK_URL;
+        return `${cleanUrl}/api`;
     }
 
-    if (Platform.OS === 'web') return 'https://localhost:7085/api/';
+    if (Platform.OS === 'web') return 'https://localhost:7085/api';
 
     // Android Emulator specific configuration
     if (Platform.OS === 'android' && !Device.isDevice) {
-        return 'https://10.0.2.2:7085/api/';
+        return 'https://10.0.2.2:7085/api';
     }
 
     // dynamic IP for physical devices (development in same Wi-Fi)
@@ -30,11 +30,11 @@ const getApiUrl = () => {
 
     if (localhost && !localhost.includes('exp.direct')) {
         // Usamos el puerto HTTP (5079) para dispositivos físicos para evitar problemas de certificados SSL
-        return `http://${localhost}:5079/api/`;
+        return `http://${localhost}:5079/api`;
     }
 
     // Fallback (Physical Android & iOS devices)
-    return 'http://172.17.21.174:5079/api/';
+    return 'http://172.17.21.174:5079/api';
 };
 
 export const API_URL = getApiUrl();

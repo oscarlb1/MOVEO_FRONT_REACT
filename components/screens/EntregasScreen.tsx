@@ -1,4 +1,3 @@
-import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
@@ -35,6 +34,7 @@ import Svg, { Circle, Defs, Path, Stop, LinearGradient as SvgGradient, Text as S
 
 // Componentes
 import PodModal from '../modals/PodModal';
+import ScannerModal from '../modals/ScannerModal';
 
 // Servicios
 import api from '@/services/api';
@@ -75,10 +75,7 @@ export default function EntregasScreen() {
     const [globalReportMsg, setGlobalReportMsg] = useState('');
     const { showAlert } = useAlert();
 
-    // Camera stats
-    const [permission, requestPermission] = useCameraPermissions();
-    const [scanned, setScanned] = useState(false);
-    const [validatingQr, setValidatingQr] = useState(false);
+    // Camera state (Simplified)
     const isProcessingQr = useRef(false);
 
     // Animación del mapa
@@ -164,38 +161,9 @@ export default function EntregasScreen() {
         setShowDetailModal(true);
     };
 
-    const handleBarCodeScanned = async ({ type, data }: { type: string; data: string }) => {
-        if (!selectedEntrega || isProcessingQr.current) return;
-
-        // Bloqueo síncrono para evitar 10 escaneos en el primer frame
-        isProcessingQr.current = true;
-        setScanned(true);
-        setValidatingQr(true);
-
-        const idEntrega = selectedEntrega.id;
-        try {
-            const isValid = await entregaService.validarQrEntrega(idEntrega, data);
-
-            if (isValid) {
-                setShowQRModal(false);
-                showAlert('¡Éxito!', 'Paquete validado correctamente. Procediendo a captura de firma.', 'success', () => {
-                    isProcessingQr.current = false;
-                    setTimeout(() => setShowPODModal(true), 500);
-                });
-            } else {
-                showAlert('Error', 'El código QR es incorrecto o no pertenece a esta entrega.', 'error', () => {
-                    setScanned(false);
-                    isProcessingQr.current = false;
-                });
-            }
-        } catch (error) {
-            showAlert('Error', 'No se pudo validar el código QR.', 'error', () => {
-                setScanned(false);
-                isProcessingQr.current = false;
-            });
-        } finally {
-            setValidatingQr(false);
-        }
+    const handleQrSuccess = () => {
+        isProcessingQr.current = false;
+        setShowPODModal(true);
     };
 
     // Acciones
@@ -219,9 +187,9 @@ export default function EntregasScreen() {
             try {
                 setLoading(true);
                 const success = await entregaService.updateEstadoEntrega(selectedEntrega.id, {
-                    Estado: 'ENTREGADO',
-                    Notas: finalNotes,
-                    FirmaDigitalUrl: signatureBg || undefined
+                    estado: 'ENTREGADO',
+                    notas: finalNotes,
+                    firmaDigitalUrl: signatureBg || undefined
                 });
 
                 if (success) {
@@ -245,8 +213,8 @@ export default function EntregasScreen() {
             try {
                 setLoading(true);
                 const success = await entregaService.updateEstadoEntrega(selectedEntrega.id, {
-                    Estado: 'FALLIDO',
-                    Notas: `Motivo: ${failReason}`
+                    estado: 'FALLIDO',
+                    notas: `Motivo: ${failReason}`
                 });
 
                 if (success) {
@@ -269,8 +237,8 @@ export default function EntregasScreen() {
         try {
             setLoading(true);
             await api.post('Notificaciones/incidencia', {
-                Titulo: 'ALERTA DE REPARTIDOR',
-                Mensaje: globalReportMsg
+                titulo: 'ALERTA DE REPARTIDOR',
+                mensaje: globalReportMsg
             });
             setGlobalReportMsg('');
             setShowGlobalModal(false);
@@ -531,15 +499,6 @@ export default function EntregasScreen() {
                                             style={styles.quickBtn}
                                             onPress={async () => {
                                                 setShowDetailModal(false);
-                                                if (!permission?.granted) {
-                                                    const res = await requestPermission();
-                                                    if (!res.granted) {
-                                                        showAlert('Permiso denegado', 'Se necesita acceso a la cámara para escanear el QR.', 'warning');
-                                                        return;
-                                                    }
-                                                }
-                                                isProcessingQr.current = false;
-                                                setScanned(false);
                                                 setShowQRModal(true);
                                             }}
                                         >
@@ -616,51 +575,16 @@ export default function EntregasScreen() {
                 </View>
             </Modal >
 
-            {/* MODAL QR */}
-            < Modal visible={showQRModal} animationType="fade" onRequestClose={() => setShowQRModal(false)}>
-                <View style={{ flex: 1, backgroundColor: 'black' }}>
-                    {permission?.granted ? (
-                        <CameraView
-                            style={StyleSheet.absoluteFillObject}
-                            facing="back"
-                            onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-                            barcodeScannerSettings={{
-                                barcodeTypes: ["qr"],
-                            }}
-                        />
-                    ) : (
-                        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                            <Text style={{ color: 'white' }}>Solicitando permisos de cámara...</Text>
-                        </View>
-                    )}
-
-                    <View style={[StyleSheet.absoluteFillObject, { alignItems: 'center', justifyContent: 'center' }]} pointerEvents="none">
-                        <Text style={{ color: 'white', fontSize: 18, marginBottom: 20, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}>
-                            Escanea el código del paquete
-                        </Text>
-                        <View style={styles.qrFrame}>
-                            <View style={styles.scanLine} />
-                        </View>
-                        {validatingQr ? (
-                            <View style={{ marginTop: 20, alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)', padding: 15, borderRadius: 8 }}>
-                                <ActivityIndicator size="large" color={COLORS.primary} />
-                                <Text style={{ color: 'white', marginTop: 10 }}>Validando paquete...</Text>
-                            </View>
-                        ) : (
-                            <Text style={{ color: COLORS.primary, marginTop: 20, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}>
-                                Esperando: {selectedEntrega?.codigoQr || '...'}
-                            </Text>
-                        )}
-                    </View>
-
-                    <TouchableOpacity
-                        style={{ position: 'absolute', top: 40, right: 20, backgroundColor: 'rgba(0,0,0,0.5)', padding: 8, borderRadius: 20 }}
-                        onPress={() => setShowQRModal(false)}
-                    >
-                        <X size={32} color="white" />
-                    </TouchableOpacity>
-                </View>
-            </Modal>
+            {/* MODAL QR (Centralizado) */}
+            {selectedEntrega && (
+                <ScannerModal
+                    visible={showQRModal}
+                    onClose={() => setShowQRModal(false)}
+                    entregaId={selectedEntrega.id}
+                    expectedQr={selectedEntrega.codigoQr}
+                    onSuccess={handleQrSuccess}
+                />
+            )}
             {/* MODAL GLOBAL (Incidencia) */}
             <Modal
                 visible={showGlobalModal}

@@ -1,7 +1,7 @@
 import { useLocationTracker } from '@/hooks/useLocationTracker';
 import api from '@/services/api';
 import { entregaService } from '@/services/entregaService';
-import { Ruta, rutaService } from '@/services/rutaService';
+import { Entrega, Ruta, rutaService } from '@/services/rutaService';
 import { useAlert } from '@/store/alertStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -9,7 +9,8 @@ import { ArrowLeft, ArrowRight, Calendar, CheckCircle2, MapPin, Navigation, Truc
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Modal, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import ConfirmacionEntregaModal from '../modals/ConfirmacionEntregaModal';
+import PodModal from '../modals/PodModal';
+import ScannerModal from '../modals/ScannerModal';
 
 export default function DetalleRutaScreen() {
     const { id } = useLocalSearchParams();
@@ -22,14 +23,18 @@ export default function DetalleRutaScreen() {
     const { showAlert } = useAlert();
 
     // Delivery Modal State
-    const [selectedEntrega, setSelectedEntrega] = useState<{ id: number, cliente: any } | null>(null);
+    const [selectedEntrega, setSelectedEntrega] = useState<Entrega | null>(null);
     const [modalVisible, setModalVisible] = useState(false);
 
-    // Location Tracking
+    // Location Tracking (preserved for other uses if needed)
     const { location } = useLocationTracker(
         ruta ? ruta.id : null,
         ruta?.estado === 'EN_PROGRESO'
     );
+
+    // Delivery Flow states
+    const [showQRModal, setShowQRModal] = useState(false);
+    const [showPODModal, setShowPODModal] = useState(false);
 
     useEffect(() => {
         if (id) {
@@ -99,9 +104,8 @@ export default function DetalleRutaScreen() {
         }
 
         if (nuevoEstado === 'ENTREGADO') {
-            console.log('Opening confirmation modal');
-            setSelectedEntrega({ id: entregaId, cliente: entrega.cliente });
-            setModalVisible(true);
+            setSelectedEntrega(entrega);
+            setShowQRModal(true);
             return;
         }
 
@@ -109,22 +113,24 @@ export default function DetalleRutaScreen() {
         await processEntregaUpdate(entregaId, nuevoEstado);
     };
 
-    const processEntregaUpdate = async (entregaId: number, nuevoEstado: string, signature?: string) => {
+    const handleCompleteDelivery = async (signature: string | null, notes: string) => {
+        if (selectedEntrega) {
+            await processEntregaUpdate(selectedEntrega.id, 'ENTREGADO', signature || undefined, notes);
+        }
+        setShowPODModal(false);
+        setSelectedEntrega(null);
+    };
+
+    const processEntregaUpdate = async (entregaId: number, nuevoEstado: string, signature?: string, notes?: string) => {
         setActionLoading(true);
         const success = await entregaService.updateEstadoEntrega(entregaId, {
-            Estado: nuevoEstado,
-            FirmaDigitalUrl: signature
+            estado: nuevoEstado,
+            firmaDigitalUrl: signature
         });
         setActionLoading(false);
 
         if (success) {
-            setRuta(prev => {
-                if (!prev || !prev.entregas) return prev;
-                const updatedEntregas = prev.entregas.map(e =>
-                    e.id === entregaId ? { ...e, estado: nuevoEstado } : e
-                );
-                return { ...prev, entregas: updatedEntregas };
-            });
+            await fetchRutaDetalle(Number(id)); // Sincronización completa como en EntregasScreen
             showAlert('Éxito', 'Estado de entrega actualizado', 'success');
         } else {
             showAlert('Error', 'No se pudo actualizar la entrega', 'error');
@@ -302,20 +308,24 @@ export default function DetalleRutaScreen() {
                 <View style={styles.spacer} />
             </ScrollView>
 
-            <ConfirmacionEntregaModal
-                visible={modalVisible}
-                onClose={() => {
-                    setModalVisible(false);
-                    setSelectedEntrega(null);
-                }}
-                onConfirm={async (signature) => {
-                    if (selectedEntrega) {
-                        await processEntregaUpdate(selectedEntrega.id, 'ENTREGADO', signature);
-                    }
-                }}
-                clienteCoords={selectedEntrega?.cliente}
-                userCoords={location}
-            />
+            {/* FLUJO DE ENTREGA UNIFICADO */}
+            {selectedEntrega && (
+                <>
+                    <ScannerModal
+                        visible={showQRModal}
+                        onClose={() => setShowQRModal(false)}
+                        entregaId={selectedEntrega.id}
+                        expectedQr={selectedEntrega.codigoQr}
+                        onSuccess={() => setShowPODModal(true)}
+                    />
+
+                    <PodModal
+                        visible={showPODModal}
+                        onClose={() => setShowPODModal(false)}
+                        onComplete={handleCompleteDelivery}
+                    />
+                </>
+            )}
 
             {/* Modal Resultado IA */}
             <Modal visible={iaResult.visible} transparent animationType="fade" onRequestClose={() => setIaResult(prev => ({ ...prev, visible: false }))}>

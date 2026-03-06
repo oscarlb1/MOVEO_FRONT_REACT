@@ -1,10 +1,10 @@
 import api from './api';
 
 export interface ActualizarEstadoEntregaDto {
-    Estado: string;
-    Notas?: string;
-    FotoUrl?: string;
-    FirmaDigitalUrl?: string;
+    estado: string;
+    notas?: string;
+    fotoUrl?: string;
+    firmaDigitalUrl?: string;
 }
 
 export const entregaService = {
@@ -19,13 +19,20 @@ export const entregaService = {
         }
     },
 
-    async validarQrEntrega(idEntrega: number, codigoQr: string): Promise<boolean> {
+    async validarQrEntrega(idEntrega: number, codigoQr: string): Promise<{ success: boolean; message?: string }> {
+        console.log(`[MOBILE] Llamando a validar-qr para entrega ${idEntrega} en: ${api.defaults.baseURL}/Entregas/${idEntrega}/validar-qr`);
         try {
             const response = await api.post(`Entregas/${idEntrega}/validar-qr`, { codigoQr });
-            return response.status === 200;
-        } catch (error) {
+            return {
+                success: response.status === 200,
+                message: response.data?.message
+            };
+        } catch (error: any) {
             console.error('Error al validar el código QR:', error);
-            return false;
+            return {
+                success: false,
+                message: error.response?.data?.message || 'Error de conexión con el servidor.'
+            };
         }
     }
 };
