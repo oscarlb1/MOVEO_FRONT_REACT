@@ -1,11 +1,12 @@
 import api from '@/services/api';
+import { useAlert } from '@/store/alertStore';
 import { useAuth } from '@/store/authStore';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { Camera, ChevronRight, Mail, Phone, Save, User } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Image, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Image, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 // Colores específicos del nuevo diseño
@@ -30,6 +31,7 @@ export default function SettingsScreen() {
     const [telefono, setTelefono] = useState(user?.telefono || '');
     const [isSaving, setIsSaving] = useState(false);
     const [image, setImage] = useState<string | null>(null); // solo para fotos nuevas de la galería
+    const { showAlert } = useAlert();
 
     // Cargar imagen real del backend al abrir la pantalla
     useEffect(() => {
@@ -53,7 +55,7 @@ export default function SettingsScreen() {
     const pickImage = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-            Alert.alert('Permiso denegado', 'Se necesita acceso a la galería para cambiar la foto.');
+            showAlert('Permiso denegado', 'Se necesita acceso a la galería para cambiar la foto.', 'warning');
             return;
         }
 
@@ -71,7 +73,7 @@ export default function SettingsScreen() {
 
     const handleSave = async () => {
         if (!nombre) {
-            Alert.alert('Error', 'El nombre es requerido');
+            showAlert('Error', 'El nombre es requerido', 'error');
             return;
         }
 
@@ -98,10 +100,10 @@ export default function SettingsScreen() {
             });
 
             await updateUser({ nombre, telefono, imagenUrl: res.data.imagenUrl });
-            Alert.alert('Éxito', 'Perfil actualizado correctamente');
+            showAlert('Éxito', 'Perfil actualizado correctamente', 'success');
         } catch (e: any) {
             console.error('Save failed', e);
-            Alert.alert('Error', 'No se pudo actualizar el perfil');
+            showAlert('Error', 'No se pudo actualizar el perfil', 'error');
         } finally {
             setIsSaving(false);
         }

@@ -5,7 +5,7 @@ interface AuthContextType {
     user: User | null;
     token: string | null;
     isLoading: boolean;
-    login: (email: string, password: string) => Promise<void>;
+    login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
     logout: () => Promise<void>;
     updateUser: (data: Partial<User>) => Promise<void>;
 }
@@ -25,8 +25,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
             const data = await authService.getUserFromStorage();
             if (data.user && data.token) {
-                setUser(data.user);
-                setToken(data.token);
+                // Check if token is expired
+                try {
+                    const { jwtDecode } = require('jwt-decode');
+                    const decoded: any = jwtDecode(data.token);
+                    const isExpired = decoded.exp * 1000 < Date.now();
+
+                    if (isExpired) {
+                        console.warn('Persisted token expired on boot. Clearing.');
+                        await logout();
+                    } else {
+                        setUser(data.user);
+                        setToken(data.token);
+                    }
+                } catch (e) {
+                    // Fallback if decode fails
+                    setUser(data.user);
+                    setToken(data.token);
+                }
             }
         } catch (e) {
             console.error('Error loading auth data', e);
@@ -35,9 +51,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     }
 
-    async function login(email: string, password: string) {
+    async function login(email: string, password: string, rememberMe: boolean = true) {
         try {
-            const data = await authService.login(email, password);
+            const data = await authService.login(email, password, rememberMe);
             setUser(data.user);
             setToken(data.token);
         } catch (e: any) {

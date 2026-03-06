@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import Constants from 'expo-constants';
 import * as Device from 'expo-device';
@@ -74,17 +75,11 @@ api.interceptors.response.use(
             if (error.response?.status === 401) {
                 console.warn('Sesión caducada o no autorizada. Limpiando almacenamiento...');
                 await storageAdapter.deleteItem('userToken');
+                await AsyncStorage.removeItem('userToken_temp');
+                await AsyncStorage.removeItem('userData');
+                await AsyncStorage.removeItem('rememberSession');
 
-                console.warn('Session cleared successfully');
-
-                setTimeout(() => {
-                    const { Alert } = require('react-native');
-                    Alert.alert(
-                        'Sesión Expirada',
-                        'Tu sesión ha caducado. Por favor, inicia sesión de nuevo.',
-                        [{ text: 'OK' }]
-                    );
-                }, 100);
+                console.warn('Session cleared successfully. Redirecting will happen via state change.');
             }
         } catch (e) {
             console.error('Error clearing session on 401', e);

@@ -19,7 +19,7 @@ interface LoginResponse {
 }
 
 export const authService = {
-    async login(email: string, password: string): Promise<{ user: User; token: string }> {
+    async login(email: string, password: string, rememberMe: boolean = true): Promise<{ user: User; token: string }> {
         try {
             const response = await api.post<LoginResponse>('Auth/iniciar-sesion', { email, password });
             const { tokenDeAcceso } = response.data;
@@ -60,8 +60,11 @@ export const authService = {
                 imagenUrl: getClaim(decoded, ['imagen_url']) || '',
             };
 
+            // Senior Logic: We always save to SecureStore so the API interceptor works seamlessly.
+            // But we use 'rememberSession' flag to decide if we auto-login on startup.
             await storageAdapter.setItem('userToken', tokenDeAcceso);
             await AsyncStorage.setItem('userData', JSON.stringify(userData));
+            await AsyncStorage.setItem('rememberSession', rememberMe ? 'true' : 'false');
 
             return { user: userData, token: tokenDeAcceso };
         } catch (error: any) {
@@ -79,11 +82,17 @@ export const authService = {
         } finally {
             await storageAdapter.deleteItem('userToken');
             await AsyncStorage.removeItem('userData');
+            await AsyncStorage.removeItem('rememberSession');
         }
     },
 
     async getUserFromStorage(): Promise<{ user: User | null; token: string | null }> {
         try {
+            const remember = await AsyncStorage.getItem('rememberSession');
+            if (remember !== 'true') {
+                return { user: null, token: null };
+            }
+
             const token = await storageAdapter.getItem('userToken');
             const userStr = await AsyncStorage.getItem('userData');
             if (token && userStr) {

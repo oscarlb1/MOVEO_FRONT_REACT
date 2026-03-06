@@ -1,7 +1,8 @@
+import { useAlert } from '@/store/alertStore';
 import { BlurView } from 'expo-blur';
 import { Check, MapPin, Trash2, X } from 'lucide-react-native';
 import React, { useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import SignatureCanvas from 'react-native-signature-canvas';
 
@@ -22,6 +23,7 @@ export default function ConfirmacionEntregaModal({
 }: ConfirmacionEntregaModalProps) {
     const signatureRef = useRef<any>(null);
     const [loading, setLoading] = useState(false);
+    const { showAlert } = useAlert();
     const [signatureCaptured, setSignatureCaptured] = useState(false);
 
     const handleConfirm = async (signature: string) => {
@@ -30,7 +32,7 @@ export default function ConfirmacionEntregaModal({
             await onConfirm(signature);
             onClose();
         } catch (error) {
-            Alert.alert('Error', 'No se pudo guardar la entrega');
+            showAlert('Error', 'No se pudo guardar la entrega', 'error');
         } finally {
             setLoading(false);
         }

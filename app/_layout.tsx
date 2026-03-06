@@ -1,8 +1,13 @@
+import AppAlertModal from '@/components/modals/AppAlertModal';
+import { AlertProvider } from '@/store/alertStore';
 import { AuthProvider, useAuth } from '@/store/authStore';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, LogBox, View } from 'react-native';
+
+// Ignore all logs for a cleaner production-like feel
+LogBox.ignoreAllLogs();
 
 function RootLayoutNav() {
   const { user, isLoading } = useAuth();
@@ -43,8 +48,11 @@ function RootLayoutNav() {
 export default function RootLayout() {
   return (
     <AuthProvider>
-      <RootLayoutNav />
-      <StatusBar style="light" />
+      <AlertProvider>
+        <RootLayoutNav />
+        <AppAlertModal />
+        <StatusBar style="light" />
+      </AlertProvider>
     </AuthProvider>
   );
 }
