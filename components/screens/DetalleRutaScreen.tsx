@@ -1,14 +1,16 @@
 import { useLocationTracker } from '@/hooks/useLocationTracker';
 import api from '@/services/api';
 import { entregaService } from '@/services/entregaService';
-import { Ruta, rutaService } from '@/services/rutaService';
+import { Entrega, Ruta, rutaService } from '@/services/rutaService';
+import { useAlert } from '@/store/alertStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, ArrowRight, Calendar, CheckCircle2, MapPin, Navigation, Truck } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Linking, Modal, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Linking, Modal, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import ConfirmacionEntregaModal from '../modals/ConfirmacionEntregaModal';
+import PodModal from '../modals/PodModal';
+import ScannerModal from '../modals/ScannerModal';
 
 export default function DetalleRutaScreen() {
     const { id } = useLocalSearchParams();
@@ -18,16 +20,21 @@ export default function DetalleRutaScreen() {
     const [actionLoading, setActionLoading] = useState(false);
     const [isOptimizing, setIsOptimizing] = useState(false);
     const [iaResult, setIaResult] = useState<{ visible: boolean; justificacion: string; success: boolean }>({ visible: false, justificacion: '', success: false });
+    const { showAlert } = useAlert();
 
     // Delivery Modal State
-    const [selectedEntrega, setSelectedEntrega] = useState<{ id: number, cliente: any } | null>(null);
+    const [selectedEntrega, setSelectedEntrega] = useState<Entrega | null>(null);
     const [modalVisible, setModalVisible] = useState(false);
 
-    // Location Tracking
+    // Location Tracking (preserved for other uses if needed)
     const { location } = useLocationTracker(
         ruta ? ruta.id : null,
         ruta?.estado === 'EN_PROGRESO'
     );
+
+    // Delivery Flow states
+    const [showQRModal, setShowQRModal] = useState(false);
+    const [showPODModal, setShowPODModal] = useState(false);
 
     useEffect(() => {
         if (id) {
@@ -41,7 +48,7 @@ export default function DetalleRutaScreen() {
             setRuta(data);
         } catch (error) {
             console.error('Error fetching route details', error);
-            Alert.alert('Error', 'No se pudo cargar la ruta');
+            showAlert('Error', 'No se pudo cargar la ruta', 'error');
         } finally {
             setLoading(false);
         }
@@ -61,9 +68,9 @@ export default function DetalleRutaScreen() {
 
         if (success) {
             setRuta({ ...ruta, estado: nuevoEstado });
-            Alert.alert('Éxito', `Ruta marcada como ${nuevoEstado}`);
+            showAlert('Éxito', `Ruta marcada como ${nuevoEstado}`, 'success');
         } else {
-            Alert.alert('Error', 'No se pudo actualizar el estado de la ruta');
+            showAlert('Error', 'No se pudo actualizar el estado de la ruta', 'error');
         }
     };
 
@@ -79,7 +86,7 @@ export default function DetalleRutaScreen() {
         } catch (error: any) {
             console.error('Error optimizar-ia:', error?.response?.status, JSON.stringify(error?.response?.data));
             const msg = error?.response?.data?.error || error?.message || 'No se pudo optimizar la ruta.';
-            setIaResult({ visible: true, justificacion: msg, success: false });
+            showAlert(iaResult.success ? 'Ruta Optimizada' : 'Error', msg, iaResult.success ? 'success' : 'error');
         } finally {
             setIsOptimizing(false);
             setActionLoading(false);
@@ -97,9 +104,8 @@ export default function DetalleRutaScreen() {
         }
 
         if (nuevoEstado === 'ENTREGADO') {
-            console.log('Opening confirmation modal');
-            setSelectedEntrega({ id: entregaId, cliente: entrega.cliente });
-            setModalVisible(true);
+            setSelectedEntrega(entrega);
+            setShowQRModal(true);
             return;
         }
 
@@ -107,31 +113,33 @@ export default function DetalleRutaScreen() {
         await processEntregaUpdate(entregaId, nuevoEstado);
     };
 
-    const processEntregaUpdate = async (entregaId: number, nuevoEstado: string, signature?: string) => {
+    const handleCompleteDelivery = async (signature: string | null, notes: string) => {
+        if (selectedEntrega) {
+            await processEntregaUpdate(selectedEntrega.id, 'ENTREGADO', signature || undefined, notes);
+        }
+        setShowPODModal(false);
+        setSelectedEntrega(null);
+    };
+
+    const processEntregaUpdate = async (entregaId: number, nuevoEstado: string, signature?: string, notes?: string) => {
         setActionLoading(true);
         const success = await entregaService.updateEstadoEntrega(entregaId, {
-            Estado: nuevoEstado,
-            FirmaDigitalUrl: signature
+            estado: nuevoEstado,
+            firmaDigitalUrl: signature
         });
         setActionLoading(false);
 
         if (success) {
-            setRuta(prev => {
-                if (!prev || !prev.entregas) return prev;
-                const updatedEntregas = prev.entregas.map(e =>
-                    e.id === entregaId ? { ...e, estado: nuevoEstado } : e
-                );
-                return { ...prev, entregas: updatedEntregas };
-            });
-            Alert.alert('Éxito', 'Estado de entrega actualizado');
+            await fetchRutaDetalle(Number(id)); // Sincronización completa como en EntregasScreen
+            showAlert('Éxito', 'Estado de entrega actualizado', 'success');
         } else {
-            Alert.alert('Error', 'No se pudo actualizar la entrega');
+            showAlert('Error', 'No se pudo actualizar la entrega', 'error');
         }
     };
 
     const openMap = () => {
         if (!ruta?.entregas || ruta.entregas.length === 0) {
-            Alert.alert('Info', 'No hay entregas en esta ruta');
+            showAlert('Info', 'No hay entregas en esta ruta', 'info');
             return;
         }
 
@@ -146,7 +154,7 @@ export default function DetalleRutaScreen() {
 
         Linking.openURL(url).catch(err => {
             console.error('An error occurred', err);
-            Alert.alert('Error', 'No se pudo abrir el mapa');
+            showAlert('Error', 'No se pudo abrir el mapa', 'error');
         });
     };
 
@@ -154,7 +162,7 @@ export default function DetalleRutaScreen() {
         const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(direccion)}`;
         Linking.openURL(url).catch(err => {
             console.error('Error opening maps', err);
-            Alert.alert('Error', 'No se pudo abrir el mapa');
+            showAlert('Error', 'No se pudo abrir el mapa', 'error');
         });
     };
 
@@ -300,20 +308,24 @@ export default function DetalleRutaScreen() {
                 <View style={styles.spacer} />
             </ScrollView>
 
-            <ConfirmacionEntregaModal
-                visible={modalVisible}
-                onClose={() => {
-                    setModalVisible(false);
-                    setSelectedEntrega(null);
-                }}
-                onConfirm={async (signature) => {
-                    if (selectedEntrega) {
-                        await processEntregaUpdate(selectedEntrega.id, 'ENTREGADO', signature);
-                    }
-                }}
-                clienteCoords={selectedEntrega?.cliente}
-                userCoords={location}
-            />
+            {/* FLUJO DE ENTREGA UNIFICADO */}
+            {selectedEntrega && (
+                <>
+                    <ScannerModal
+                        visible={showQRModal}
+                        onClose={() => setShowQRModal(false)}
+                        entregaId={selectedEntrega.id}
+                        expectedQr={selectedEntrega.codigoQr}
+                        onSuccess={() => setShowPODModal(true)}
+                    />
+
+                    <PodModal
+                        visible={showPODModal}
+                        onClose={() => setShowPODModal(false)}
+                        onComplete={handleCompleteDelivery}
+                    />
+                </>
+            )}
 
             {/* Modal Resultado IA */}
             <Modal visible={iaResult.visible} transparent animationType="fade" onRequestClose={() => setIaResult(prev => ({ ...prev, visible: false }))}>

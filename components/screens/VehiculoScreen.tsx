@@ -1,9 +1,9 @@
 import api from '@/services/api';
+import { useAlert } from '@/store/alertStore';
 import { useAuth } from '@/store/authStore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
-    AlertTriangle,
     Calendar,
     CheckCircle,
     ChevronRight,
@@ -20,7 +20,6 @@ import {
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    Modal,
     ScrollView,
     StatusBar,
     StyleSheet,
@@ -82,7 +81,7 @@ export default function VehiculoScreen() {
     const [mantenimientos, setMantenimientos] = useState<MantenimientoData[]>([]);
     const [showReportModal, setShowReportModal] = useState(false);
     const [checklistCompleted, setChecklistCompleted] = useState(false);
-    const [customAlert, setCustomAlert] = useState<{ visible: boolean; title: string; message: string; type: 'success' | 'error' | 'info' }>({ visible: false, title: '', message: '', type: 'info' });
+    const { showAlert } = useAlert();
 
     const [checklist, setChecklist] = useState<ChecklistItem[]>([
         { id: 1, item: "Luces funcionando", checked: false },
@@ -106,7 +105,7 @@ export default function VehiculoScreen() {
 
             // Buscar ruta pendiente o en progreso
             const rutaActiva = rutas.find((r: any) =>
-                r.estado === 'PENDIENTE' || r.estado === 'EN__PROGRESO' || r.estado === 'EN_CAMINO'
+                r.estado === 'PENDIENTE' || r.estado === 'EN_PROGRESO' || r.estado === 'EN_CAMINO'
             );
 
             if (rutaActiva && rutaActiva.vehiculoId) {
@@ -126,7 +125,7 @@ export default function VehiculoScreen() {
             }
         } catch (error) {
             console.error('Error cargando datos del vehículo:', error);
-            setCustomAlert({ visible: true, title: 'Error', message: 'No se pudo cargar la información del vehículo.', type: 'error' });
+            showAlert('Error', 'No se pudo cargar la información del vehículo.', 'error');
         } finally {
             setLoading(false);
         }
@@ -142,7 +141,7 @@ export default function VehiculoScreen() {
 
     const handleCompleteChecklist = () => {
         setChecklistCompleted(true);
-        setCustomAlert({ visible: true, title: 'Inspección Completada', message: 'El registro se ha guardado correctamente.', type: 'success' });
+        showAlert('Inspección Completada', 'El registro se ha guardado correctamente.', 'success');
     };
 
     const allChecked = checklist.every(item => item.checked);
@@ -342,37 +341,6 @@ export default function VehiculoScreen() {
                 </View>
             </ScrollView>
 
-            {/* Custom Alert Modal */}
-            <Modal visible={customAlert.visible} transparent animationType="fade" onRequestClose={() => setCustomAlert(prev => ({ ...prev, visible: false }))}>
-                <View style={styles.modalOverlay}>
-                    <View style={[styles.modalContent, { alignItems: 'center', paddingVertical: 32 }]}>
-                        <View style={{
-                            width: 60, height: 60, borderRadius: 30, marginBottom: 16,
-                            backgroundColor: customAlert.type === 'success' ? `${COLORS.success}20` : customAlert.type === 'error' ? `${COLORS.danger}20` : `${COLORS.info}20`,
-                            justifyContent: 'center', alignItems: 'center',
-                        }}>
-                            {customAlert.type === 'success' ? (
-                                <CheckCircle size={32} color={COLORS.success} />
-                            ) : customAlert.type === 'error' ? (
-                                <AlertTriangle size={32} color={COLORS.danger} />
-                            ) : (
-                                <AlertTriangle size={32} color={COLORS.info} />
-                            )}
-                        </View>
-                        <Text style={[styles.modalTitle, { textAlign: 'center', marginBottom: 8 }]}>{customAlert.title}</Text>
-                        <Text style={[styles.modalDescription, { textAlign: 'center', marginBottom: 24 }]}>{customAlert.message}</Text>
-                        <TouchableOpacity
-                            style={{
-                                backgroundColor: customAlert.type === 'success' ? COLORS.success : customAlert.type === 'error' ? COLORS.danger : COLORS.accent,
-                                paddingHorizontal: 40, paddingVertical: 14, borderRadius: 14,
-                            }}
-                            onPress={() => setCustomAlert(prev => ({ ...prev, visible: false }))}
-                        >
-                            <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Aceptar</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </Modal>
         </View>
     );
 }

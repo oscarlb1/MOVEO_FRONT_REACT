@@ -38,6 +38,7 @@ interface PodModalProps {
 
 export default function PodModal({ visible, onClose, onComplete }: PodModalProps) {
     const signatureRef = useRef<any>(null);
+    const [isConfirming, setIsConfirming] = useState(false);
     const [signature, setSignature] = useState<string | null>(null);
     const [podNotes, setPodNotes] = useState('');
     const [isInputFocused, setIsInputFocused] = useState(false);
@@ -48,16 +49,34 @@ export default function PodModal({ visible, onClose, onComplete }: PodModalProps
             setSignature(null);
             setPodNotes('');
             setIsInputFocused(false);
+            setIsConfirming(false);
             if (signatureRef.current) signatureRef.current.clearSignature();
         }
     }, [visible]);
 
     const handleSignatureOK = (signatureBg: string) => {
         setSignature(signatureBg);
+        if (isConfirming) {
+            onComplete(signatureBg, podNotes);
+            setIsConfirming(false);
+        }
     };
 
+    const handleSignatureEmpty = () => {
+        if (isConfirming) {
+            // Si está vacío, completamos sin firma
+            onComplete(null, podNotes);
+            setIsConfirming(false);
+        }
+    }
+
     const handleConfirm = () => {
-        onComplete(signature, podNotes);
+        if (signatureRef.current) {
+            setIsConfirming(true);
+            signatureRef.current.readSignature();
+        } else {
+            onComplete(null, podNotes);
+        }
     };
 
     const handleClose = () => {
@@ -92,6 +111,7 @@ export default function PodModal({ visible, onClose, onComplete }: PodModalProps
                             <SignatureScreen
                                 ref={signatureRef}
                                 onOK={handleSignatureOK}
+                                onEmpty={handleSignatureEmpty}
                                 webStyle={`.m-signature-pad--footer {display: none; margin: 0px;}`}
                                 autoClear={false}
                                 imageType="image/png"

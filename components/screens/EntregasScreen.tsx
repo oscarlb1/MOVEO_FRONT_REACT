@@ -1,4 +1,3 @@
-import { CameraView, useCameraPermissions } from 'expo-camera';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
@@ -17,7 +16,6 @@ import {
 import React, { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
-    Alert,
     Dimensions,
     Image,
     Linking,
@@ -36,9 +34,11 @@ import Svg, { Circle, Defs, Path, Stop, LinearGradient as SvgGradient, Text as S
 // Componentes
 import IncidenciasModal from '../modals/IncidenciasModal';
 import PodModal from '../modals/PodModal';
+import ScannerModal from '../modals/ScannerModal';
 
 // Servicios
 import api from '@/services/api';
+import { useAlert } from '@/store/alertStore';
 import { useAuth } from '@/store/authStore';
 import { entregaService } from '../../services/entregaService';
 import { Entrega, Ruta, rutaService } from '../../services/rutaService';
@@ -64,6 +64,7 @@ const COLORS = {
 export default function EntregasScreen() {
     const router = useRouter();
     const { user, logout } = useAuth();
+    const { showAlert } = useAlert();
     const [loading, setLoading] = useState(true);
     const [entregas, setEntregas] = useState<Entrega[]>([]);
     const [stats, setStats] = useState({ total: 0, completed: 0, pending: 0, failed: 0 });
@@ -72,12 +73,8 @@ export default function EntregasScreen() {
     // Profile & Global Modal
     const [showProfileMenu, setShowProfileMenu] = useState(false);
     const [showGlobalModal, setShowGlobalModal] = useState(false);
-    const [customAlert, setCustomAlert] = useState<{ visible: boolean; title: string; message: string; type: 'success' | 'error' }>({ visible: false, title: '', message: '', type: 'success' });
 
-    // Camera stats
-    const [permission, requestPermission] = useCameraPermissions();
-    const [scanned, setScanned] = useState(false);
-    const [validatingQr, setValidatingQr] = useState(false);
+    // Camera state (Simplified)
     const isProcessingQr = useRef(false);
 
     // Animación del mapa
@@ -143,7 +140,7 @@ export default function EntregasScreen() {
             }
         } catch (error) {
             console.error('Error cargando entregas:', error);
-            Alert.alert('Error', 'No se pudieron cargar las entregas del servidor.');
+            showAlert('Error', 'No se pudieron cargar las entregas del servidor.', 'error');
         } finally {
             setLoading(false);
         }
@@ -163,53 +160,9 @@ export default function EntregasScreen() {
         setShowDetailModal(true);
     };
 
-    const handleBarCodeScanned = async ({ type, data }: { type: string; data: string }) => {
-        if (!selectedEntrega || isProcessingQr.current) return;
-
-        // Bloqueo síncrono para evitar 10 escaneos en el primer frame
-        isProcessingQr.current = true;
-        setScanned(true);
-        setValidatingQr(true);
-
-        const idEntrega = selectedEntrega.id;
-        try {
-            const isValid = await entregaService.validarQrEntrega(idEntrega, data);
-
-            if (isValid) {
-                setShowQRModal(false);
-                Alert.alert('¡Éxito!', 'Paquete validado correctamente. Procediendo a captura de firma.', [
-                    {
-                        text: 'OK',
-                        onPress: () => {
-                            isProcessingQr.current = false;
-                            setTimeout(() => setShowPODModal(true), 500);
-                        }
-                    }
-                ]);
-            } else {
-                Alert.alert('Error', 'El código QR es incorrecto o no pertenece a esta entrega.', [
-                    {
-                        text: 'OK',
-                        onPress: () => {
-                            setScanned(false);
-                            isProcessingQr.current = false;
-                        }
-                    }
-                ]);
-            }
-        } catch (error) {
-            Alert.alert('Error', 'No se pudo validar el código QR.', [
-                {
-                    text: 'OK',
-                    onPress: () => {
-                        setScanned(false);
-                        isProcessingQr.current = false;
-                    }
-                }
-            ]);
-        } finally {
-            setValidatingQr(false);
-        }
+    const handleQrSuccess = () => {
+        isProcessingQr.current = false;
+        setShowPODModal(true);
     };
 
     // Acciones
@@ -221,7 +174,7 @@ export default function EntregasScreen() {
             });
             Linking.openURL(url!);
         } else {
-            Alert.alert('Ubicación no disponible', 'Esta entrega no tiene coordenadas GPS válidas.');
+            showAlert('Ubicación no disponible', 'Esta entrega no tiene coordenadas GPS válidas.', 'warning');
         }
     };
     const handleCall = (phone: string) => {
@@ -233,19 +186,19 @@ export default function EntregasScreen() {
             try {
                 setLoading(true);
                 const success = await entregaService.updateEstadoEntrega(selectedEntrega.id, {
-                    Estado: 'ENTREGADO',
-                    Notas: finalNotes,
-                    FirmaDigitalUrl: signatureBg || undefined
+                    estado: 'ENTREGADO',
+                    notas: finalNotes,
+                    firmaDigitalUrl: signatureBg || undefined
                 });
 
                 if (success) {
                     await cargarDatos(); // Recargar todo para sincronizar
-                    Alert.alert('¡Éxito!', 'Entrega confirmada correctamente.');
+                    showAlert('¡Éxito!', 'Entrega confirmada correctamente.', 'success');
                 } else {
-                    Alert.alert('Error', 'No se pudo actualizar el estado en el servidor.');
+                    showAlert('Error', 'No se pudo actualizar el estado en el servidor.', 'error');
                 }
             } catch (error) {
-                Alert.alert('Error', 'Falló la conexión al completar entrega.');
+                showAlert('Error', 'Falló la conexión al completar entrega.', 'error');
             } finally {
                 setLoading(false);
             }
@@ -259,17 +212,17 @@ export default function EntregasScreen() {
             try {
                 setLoading(true);
                 const success = await entregaService.updateEstadoEntrega(selectedEntrega.id, {
-                    Estado: 'FALLIDO',
-                    Notas: `Motivo: ${failReason}`
+                    estado: 'FALLIDO',
+                    notas: `Motivo: ${failReason}`
                 });
 
                 if (success) {
                     await cargarDatos();
                 } else {
-                    Alert.alert('Error', 'No se pudo registrar el fallo.');
+                    showAlert('Error', 'No se pudo registrar el fallo.', 'error');
                 }
             } catch (error) {
-                Alert.alert('Error', 'Falló la conexión al registrar fallo.');
+                showAlert('Error', 'Falló la conexión al registrar fallo.', 'error');
             } finally {
                 setLoading(false);
             }
@@ -280,18 +233,14 @@ export default function EntregasScreen() {
 
     const handleSendGlobalReport = async (message: string) => {
         try {
-            setLoading(true);
             await api.post('Notificaciones/incidencia', {
-                Titulo: 'ALERTA DE REPARTIDOR',
-                Mensaje: message
+                titulo: 'ALERTA DE REPARTIDOR',
+                mensaje: message
             });
-            setCustomAlert({ visible: true, title: 'Incidencia Enviada', message: 'Tu equipo ha sido notificado.', type: 'success' });
+            showAlert('Incidencia Enviada', 'Tu equipo ha sido notificado.', 'success');
         } catch (e) {
             console.error('Error enviando reporte global', e);
-            setCustomAlert({ visible: true, title: 'Error', message: 'No se pudo enviar el reporte.', type: 'error' });
-            throw e; // Propagar para que el modal maneje el estado de carga
-        } finally {
-            setLoading(false);
+            showAlert('Error', 'No se pudo enviar el reporte.', 'error');
         }
     };
     const animatedPathProps = useAnimatedProps(() => ({
@@ -543,15 +492,6 @@ export default function EntregasScreen() {
                                             style={styles.quickBtn}
                                             onPress={async () => {
                                                 setShowDetailModal(false);
-                                                if (!permission?.granted) {
-                                                    const res = await requestPermission();
-                                                    if (!res.granted) {
-                                                        Alert.alert('Permiso denegado', 'Se necesita acceso a la cámara para escanear el QR.');
-                                                        return;
-                                                    }
-                                                }
-                                                isProcessingQr.current = false;
-                                                setScanned(false);
                                                 setShowQRModal(true);
                                             }}
                                         >
@@ -628,102 +568,54 @@ export default function EntregasScreen() {
                 </View>
             </Modal >
 
-            {/* MODAL QR */}
-            < Modal visible={showQRModal} animationType="fade" onRequestClose={() => setShowQRModal(false)}>
-                <View style={{ flex: 1, backgroundColor: 'black' }}>
-                    {permission?.granted ? (
-                        <CameraView
-                            style={StyleSheet.absoluteFillObject}
-                            facing="back"
-                            onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-                            barcodeScannerSettings={{
-                                barcodeTypes: ["qr"],
-                            }}
-                        />
-                    ) : (
-                        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                            <Text style={{ color: 'white' }}>Solicitando permisos de cámara...</Text>
-                        </View>
-                    )}
-
-                    <View style={[StyleSheet.absoluteFillObject, { alignItems: 'center', justifyContent: 'center' }]} pointerEvents="none">
-                        <Text style={{ color: 'white', fontSize: 18, marginBottom: 20, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 }}>
-                            Escanea el código del paquete
-                        </Text>
-                        <View style={styles.qrFrame}>
-                            <View style={styles.scanLine} />
-                        </View>
-                        {validatingQr ? (
-                            <View style={{ marginTop: 20, alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.6)', padding: 15, borderRadius: 8 }}>
-                                <ActivityIndicator size="large" color={COLORS.primary} />
-                                <Text style={{ color: 'white', marginTop: 10 }}>Validando paquete...</Text>
-                            </View>
-                        ) : (
-                            <Text style={{ color: COLORS.primary, marginTop: 20, backgroundColor: 'rgba(0,0,0,0.6)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}>
-                                Esperando: {selectedEntrega?.codigoQr || '...'}
-                            </Text>
-                        )}
-                    </View>
-
-                    <TouchableOpacity
-                        style={{ position: 'absolute', top: 40, right: 20, backgroundColor: 'rgba(0,0,0,0.5)', padding: 8, borderRadius: 20 }}
-                        onPress={() => setShowQRModal(false)}
-                    >
-                        <X size={32} color="white" />
-                    </TouchableOpacity>
-                </View>
-            </Modal>
-
-            {/* MODAL INCIDENCIA GLOBAL */}
+            {/* MODAL QR (Centralizado) */}
+            {selectedEntrega && (
+                <ScannerModal
+                    visible={showQRModal}
+                    onClose={() => setShowQRModal(false)}
+                    entregaId={selectedEntrega.id}
+                    expectedQr={selectedEntrega.codigoQr}
+                    onSuccess={handleQrSuccess}
+                />
+            )}
+            {/* INCIDENCIAS MODAL */}
             <IncidenciasModal
                 visible={showGlobalModal}
                 onClose={() => setShowGlobalModal(false)}
                 onSend={handleSendGlobalReport}
             />
 
-            {/* PROFILE MENU POPUP */}
+            {/* MENU PERFIL */}
             {showProfileMenu && (
-                <TouchableOpacity style={styles.profileMenuOverlay} activeOpacity={1} onPress={() => setShowProfileMenu(false)}>
+                <TouchableOpacity
+                    style={styles.profileMenuOverlay}
+                    activeOpacity={1}
+                    onPress={() => setShowProfileMenu(false)}
+                >
                     <View style={styles.profileMenu}>
-                        <TouchableOpacity style={styles.profileMenuItem} onPress={() => { setShowProfileMenu(false); router.push('/(tabs)/perfil'); }}>
-                            <Text style={styles.profileMenuText}>Configuración</Text>
+                        <TouchableOpacity
+                            style={styles.profileMenuItem}
+                            onPress={() => {
+                                setShowProfileMenu(false);
+                                router.push('/profile' as any);
+                            }}
+                        >
+                            <Text style={styles.profileMenuText}>Mi Perfil</Text>
                         </TouchableOpacity>
-                        <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.1)' }} />
-                        <TouchableOpacity style={styles.profileMenuItem} onPress={() => { setShowProfileMenu(false); logout(); }}>
+
+                        <TouchableOpacity
+                            style={[styles.profileMenuItem, { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' }]}
+                            onPress={() => {
+                                setShowProfileMenu(false);
+                                logout();
+                            }}
+                        >
                             <Text style={[styles.profileMenuText, { color: COLORS.danger }]}>Cerrar Sesión</Text>
                         </TouchableOpacity>
                     </View>
                 </TouchableOpacity>
             )}
-            {/* CUSTOM ALERT MODAL */}
-            <Modal visible={customAlert.visible} transparent animationType="fade" onRequestClose={() => setCustomAlert(prev => ({ ...prev, visible: false }))}>
-                <View style={styles.modalOverlay}>
-                    <View style={[styles.modalContent, { alignItems: 'center', paddingVertical: 32 }]}>
-                        <View style={{
-                            width: 60, height: 60, borderRadius: 30, marginBottom: 16,
-                            backgroundColor: customAlert.type === 'success' ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
-                            justifyContent: 'center', alignItems: 'center',
-                        }}>
-                            {customAlert.type === 'success' ? (
-                                <CheckCircle size={32} color={COLORS.success} />
-                            ) : (
-                                <AlertCircle size={32} color={COLORS.danger} />
-                            )}
-                        </View>
-                        <Text style={[styles.modalTitle, { textAlign: 'center', marginBottom: 8 }]}>{customAlert.title}</Text>
-                        <Text style={{ color: COLORS.textSecondary, textAlign: 'center', marginBottom: 24, fontSize: 14 }}>{customAlert.message}</Text>
-                        <TouchableOpacity
-                            style={{
-                                backgroundColor: customAlert.type === 'success' ? COLORS.success : COLORS.danger,
-                                paddingHorizontal: 40, paddingVertical: 14, borderRadius: 14,
-                            }}
-                            onPress={() => setCustomAlert(prev => ({ ...prev, visible: false }))}
-                        >
-                            <Text style={{ color: 'white', fontWeight: 'bold', fontSize: 16 }}>Aceptar</Text>
-                        </TouchableOpacity>
-                    </View>
-                </View>
-            </Modal>
+
 
         </SafeAreaView >
     );
@@ -1162,45 +1054,6 @@ const styles = StyleSheet.create({
         color: 'white',
         fontSize: 14,
     },
-    signatureContainer: {
-        height: 300,
-        backgroundColor: 'white',
-        borderRadius: 16,
-        overflow: 'hidden',
-        marginBottom: 24,
-    },
-    clearSignatureBtn: {
-        position: 'absolute',
-        top: 12,
-        right: 12,
-        backgroundColor: 'rgba(0,0,0,0.1)',
-        padding: 8,
-        borderRadius: 8,
-    },
-    clearSignatureText: {
-        fontSize: 12,
-        color: '#666',
-    },
-    sectionHeader: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: 'white',
-        marginBottom: 12,
-        marginTop: 12,
-    },
-    textArea: {
-        backgroundColor: COLORS.card,
-        borderRadius: 16,
-        padding: 16,
-        color: 'white',
-        textAlignVertical: 'top',
-        borderWidth: 1,
-        borderColor: COLORS.cardBorder,
-    },
-    fullScreenModal: {
-        flex: 1,
-        backgroundColor: COLORS.background,
-    },
     reasonItem: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -1220,48 +1073,8 @@ const styles = StyleSheet.create({
         color: 'white',
         fontSize: 14,
     },
-    qrFrame: {
-        width: 250,
-        height: 250,
-        borderWidth: 2,
-        borderColor: COLORS.primary,
-        borderRadius: 24,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    scanLine: {
-        height: 2,
-        backgroundColor: COLORS.primary,
-        width: '100%',
-        shadowColor: COLORS.primary,
-        shadowRadius: 10,
-        shadowOpacity: 1,
-    },
-    closeQR: {
-        position: 'absolute',
-        bottom: 50,
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        padding: 16,
-        borderRadius: 30,
-    },
     dotPending: {
         backgroundColor: COLORS.card,
         borderColor: COLORS.cardBorder,
-    },
-    photoUploadBtn: {
-        height: 100,
-        backgroundColor: COLORS.card,
-        borderRadius: 16,
-        borderWidth: 1,
-        borderColor: COLORS.cardBorder,
-        borderStyle: 'dashed',
-        justifyContent: 'center',
-        alignItems: 'center',
-        gap: 8,
-        marginBottom: 24,
-    },
-    photoText: {
-        color: COLORS.textSecondary,
-        fontSize: 14,
     },
 });

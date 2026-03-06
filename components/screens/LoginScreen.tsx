@@ -1,7 +1,7 @@
 import { useAuth } from '@/store/authStore';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ArrowRight, Eye, EyeOff, Globe, Lock, Mail, Monitor, ShieldAlert, Truck, X } from 'lucide-react-native';
+import { ArrowRight, Check, Eye, EyeOff, Globe, Lock, Mail, Monitor, ShieldAlert, Truck, X } from 'lucide-react-native';
 import React, { useState } from 'react';
 import {
     ActivityIndicator,
@@ -31,6 +31,7 @@ export default function LoginScreen() {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [rememberMe, setRememberMe] = useState(true);
     const [errorModal, setErrorModal] = useState<ErrorModalState>({
         visible: false,
         title: '',
@@ -55,7 +56,7 @@ export default function LoginScreen() {
 
         setIsSubmitting(true);
         try {
-            await login(email, password);
+            await login(email, password, rememberMe);
         } catch (error: any) {
             if (error.code === 'ADMIN_NOT_ALLOWED') {
                 showError(
@@ -142,6 +143,17 @@ export default function LoginScreen() {
                             </TouchableOpacity>
                         </View>
                     </View>
+
+                    <TouchableOpacity
+                        style={styles.rememberRow}
+                        onPress={() => setRememberMe(!rememberMe)}
+                        activeOpacity={0.7}
+                    >
+                        <View style={[styles.checkbox, rememberMe && styles.checkboxActive]}>
+                            {rememberMe && <Check color="white" size={14} strokeWidth={3} />}
+                        </View>
+                        <Text style={styles.rememberText}>Recordar mi sesión</Text>
+                    </TouchableOpacity>
 
                     <TouchableOpacity
                         style={[styles.loginButton, isSubmitting && styles.buttonDisabled]}
@@ -446,5 +458,30 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '800',
         letterSpacing: 1,
+    },
+    rememberRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 20,
+        paddingHorizontal: 5,
+    },
+    checkbox: {
+        width: 22,
+        height: 22,
+        borderRadius: 6,
+        borderWidth: 2,
+        borderColor: 'rgba(255, 255, 255, 0.2)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 10,
+    },
+    checkboxActive: {
+        backgroundColor: '#E67E50',
+        borderColor: '#E67E50',
+    },
+    rememberText: {
+        color: 'rgba(255, 255, 255, 0.6)',
+        fontSize: 14,
+        fontWeight: '500',
     },
 });
