@@ -1,3 +1,4 @@
+import { formatStatus } from '@/utils/formatters';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
@@ -6,6 +7,7 @@ import {
     CheckCircle,
     ChevronRight,
     Clock,
+    Lock,
     MapPin,
     Navigation,
     Phone,
@@ -30,8 +32,8 @@ import {
 } from 'react-native';
 import Animated, { useAnimatedProps, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { formatStatus } from '@/utils/formatters';
 import Svg, { Circle, Defs, Path, Stop, LinearGradient as SvgGradient, Text as SvgText } from 'react-native-svg';
+
 // Componentes
 import IncidenciasModal from '../modals/IncidenciasModal';
 import PodModal from '../modals/PodModal';
@@ -70,6 +72,7 @@ export default function EntregasScreen() {
     const [entregas, setEntregas] = useState<Entrega[]>([]);
     const [stats, setStats] = useState({ total: 0, completed: 0, pending: 0, failed: 0 });
     const [rutaActiva, setRutaActiva] = useState<Ruta | null>(null);
+    const [totalRutas, setTotalRutas] = useState(0);
 
     // Profile & Global Modal
     const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -108,24 +111,16 @@ export default function EntregasScreen() {
         try {
             setLoading(true);
             const rutas = await rutaService.getMisRutas();
+            setTotalRutas(rutas?.length || 0);
 
             if (rutas && rutas.length > 0) {
-                // Buscamos preferentemente una ruta que tenga entregas o esté en progreso
-                // Para esto necesitamos iterarlas y pedir el detalle, o coger la de estado EN_PROGRESO/PENDIENTE
-                let rutaSeleccionada = rutas[0];
-                let detalleSeleccionado = await rutaService.getRutaDetalle(rutaSeleccionada.id);
+                // Priorizar rutas activas
+                const rutasActivas = rutas.filter((r: any) =>
+                    ['EN_PROGRESO', 'EN_CAMINO', 'EN_RUTA', 'EN_CURSO'].includes(r.estado?.toUpperCase())
+                );
 
-                // Si la primera no tiene entregas, intentamos buscar una que sí tenga
-                if (!detalleSeleccionado.entregas || detalleSeleccionado.entregas.length === 0) {
-                    for (let i = 1; i < rutas.length; i++) {
-                        const testDetalle = await rutaService.getRutaDetalle(rutas[i].id);
-                        if (testDetalle.entregas && testDetalle.entregas.length > 0) {
-                            detalleSeleccionado = testDetalle;
-                            rutaSeleccionada = rutas[i];
-                            break;
-                        }
-                    }
-                }
+                let rutaSeleccionada = rutasActivas.length > 0 ? rutasActivas[0] : rutas[0];
+                let detalleSeleccionado = await rutaService.getRutaDetalle(rutaSeleccionada.id);
 
                 setRutaActiva(detalleSeleccionado);
 
@@ -244,6 +239,7 @@ export default function EntregasScreen() {
             showAlert('Error', 'No se pudo enviar el reporte.', 'error');
         }
     };
+
     const animatedPathProps = useAnimatedProps(() => ({
         strokeDashoffset: 400 * (1 - pathProgress.value),
     }));
@@ -350,6 +346,25 @@ export default function EntregasScreen() {
 
                 {loading ? (
                     <ActivityIndicator size="large" color={COLORS.primary} style={{ marginTop: 40 }} />
+                ) : !rutaActiva || !['EN_PROGRESO', 'EN_CAMINO', 'EN_RUTA', 'EN_CURSO', 'COMPLETADA'].includes(rutaActiva.estado?.toUpperCase()) ? (
+                    <View style={styles.notStartedContainer}>
+                        <View style={styles.notStartedIcon}>
+                            <Lock size={40} color={COLORS.primary} />
+                        </View>
+                        <Text style={styles.notStartedTitle}>Ruta no iniciada</Text>
+                        <Text style={styles.notStartedText}>
+                            {totalRutas > 1
+                                ? `Tienes ${totalRutas} rutas asignadas hoy. Selecciona una en el listado para comenzar.`
+                                : 'Debes iniciar la ruta desde los detalles para poder ver y gestionar tus entregas.'}
+                        </Text>
+                        <TouchableOpacity
+                            style={styles.notStartedBtn}
+                            onPress={() => router.push('/(tabs)/rutas' as any)}
+                        >
+                            <Text style={styles.notStartedBtnText}>Ver Mis Rutas</Text>
+                            <ChevronRight size={20} color="white" />
+                        </TouchableOpacity>
+                    </View>
                 ) : entregas.length === 0 ? (
                     <View style={styles.emptyState}>
                         <Box size={48} color={COLORS.cardBorder} />
@@ -616,8 +631,6 @@ export default function EntregasScreen() {
                     </View>
                 </TouchableOpacity>
             )}
-
-
         </SafeAreaView >
     );
 }
@@ -735,13 +748,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         borderWidth: 1,
         borderColor: 'rgba(255,255,255,0.05)',
-    },
-    mapLabel: {
-        position: 'absolute',
-        color: COLORS.textSecondary,
-        fontSize: 10,
-        fontWeight: 'bold',
-        textTransform: 'uppercase',
     },
     statsGrid: {
         flexDirection: 'row',
@@ -927,7 +933,6 @@ const styles = StyleSheet.create({
         marginTop: 16,
         textAlign: 'center',
     },
-    // Modals
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.85)',
@@ -938,15 +943,14 @@ const styles = StyleSheet.create({
         borderTopLeftRadius: 32,
         borderTopRightRadius: 32,
         padding: 24,
+        paddingTop: 40,
         minHeight: 500,
     },
     modalHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 10,
-        paddingHorizontal: 24,
-        paddingTop: Platform.OS === 'android' ? 20 : 10,
+        marginBottom: 20,
     },
     modalTitle: {
         fontSize: 20,
@@ -1077,5 +1081,59 @@ const styles = StyleSheet.create({
     dotPending: {
         backgroundColor: COLORS.card,
         borderColor: COLORS.cardBorder,
+    },
+    // Not Started Screen Styles
+    notStartedContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 30,
+        marginTop: 40,
+        backgroundColor: 'rgba(30, 45, 61, 0.4)',
+        borderRadius: 24,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.05)',
+    },
+    notStartedIcon: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: 'rgba(230, 126, 80, 0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    notStartedTitle: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: 'white',
+        marginBottom: 12,
+        textAlign: 'center',
+    },
+    notStartedText: {
+        fontSize: 15,
+        color: COLORS.textSecondary,
+        textAlign: 'center',
+        lineHeight: 22,
+        marginBottom: 30,
+    },
+    notStartedBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: COLORS.primary,
+        paddingVertical: 14,
+        paddingHorizontal: 24,
+        borderRadius: 16,
+        gap: 8,
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 5,
+    },
+    notStartedBtnText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: 'bold',
     },
 });

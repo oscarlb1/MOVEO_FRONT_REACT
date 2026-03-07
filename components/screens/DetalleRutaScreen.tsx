@@ -3,13 +3,13 @@ import api from '@/services/api';
 import { entregaService } from '@/services/entregaService';
 import { Entrega, Ruta, rutaService } from '@/services/rutaService';
 import { useAlert } from '@/store/alertStore';
+import { formatStatus } from '@/utils/formatters';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ArrowLeft, ArrowRight, Calendar, CheckCircle2, MapPin, Navigation, Truck } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Modal, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { formatStatus } from '@/utils/formatters';
 import PodModal from '../modals/PodModal';
 import ScannerModal from '../modals/ScannerModal';
 
@@ -58,20 +58,47 @@ export default function DetalleRutaScreen() {
     const handleEstadoChange = async () => {
         if (!ruta) return;
 
+        const estadoUpper = ruta.estado?.toUpperCase();
         let nuevoEstado = '';
-        if (ruta.estado === 'PENDIENTE') nuevoEstado = 'EN_PROGRESO';
-        else if (ruta.estado === 'EN_PROGRESO') nuevoEstado = 'COMPLETADA';
-        else return;
+
+        if (estadoUpper === 'PENDIENTE' || estadoUpper === 'PLANIFICADA') {
+            nuevoEstado = 'EN_PROGRESO';
+        } else if (estadoUpper === 'EN_PROGRESO' || estadoUpper === 'EN_CAMINO' || estadoUpper === 'EN_RUTA' || estadoUpper === 'EN_CURSO') {
+            // Validar que todas las entregas estén finalizadas (ENTREGADO o CANCELADO)
+            const entregasPendientes = ruta.entregas?.filter(e => {
+                const entEstado = e.estado?.toUpperCase();
+                return entEstado === 'PENDIENTE' || entEstado === 'EN_CAMINO' || entEstado === 'EN_PROGRESO';
+            });
+
+            if (entregasPendientes && entregasPendientes.length > 0) {
+                showAlert(
+                    'Entregas Pendientes',
+                    'Debes realizar todas las entregas antes de finalizar la ruta.',
+                    'warning'
+                );
+                return;
+            }
+
+            nuevoEstado = 'COMPLETADA';
+        } else {
+            console.warn('Estado de ruta no reconocido para cambio:', ruta.estado);
+            return;
+        }
 
         setActionLoading(true);
-        const success = await rutaService.updateEstadoRuta(ruta.id, nuevoEstado);
-        setActionLoading(false);
-
-        if (success) {
-            setRuta({ ...ruta, estado: nuevoEstado });
-            showAlert('Éxito', `Ruta marcada como ${nuevoEstado}`, 'success');
-        } else {
-            showAlert('Error', 'No se pudo actualizar el estado de la ruta', 'error');
+        try {
+            const success = await rutaService.updateEstadoRuta(ruta.id, nuevoEstado);
+            if (success) {
+                setRuta({ ...ruta, estado: nuevoEstado });
+                showAlert('Éxito', `Ruta marcada como ${nuevoEstado}`, 'success');
+            } else {
+                showAlert('Error', 'No se pudo actualizar el estado de la ruta', 'error');
+            }
+        } catch (error) {
+            console.error('Error updating route state:', error);
+            showAlert('Error', 'Ocurrió un error al actualizar el estado', 'error');
+        } finally {
+            setActionLoading(false);
         }
     };
 

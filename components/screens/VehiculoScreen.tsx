@@ -1,6 +1,7 @@
 import api from '@/services/api';
 import { useAlert } from '@/store/alertStore';
 import { useAuth } from '@/store/authStore';
+import { formatStatus } from '@/utils/formatters';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import {
@@ -14,13 +15,14 @@ import {
     MapPin,
     Package,
     Phone,
+    RotateCw,
     Truck,
     Wrench
 } from 'lucide-react-native';
-import { formatStatus } from '@/utils/formatters';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    RefreshControl,
     ScrollView,
     StatusBar,
     StyleSheet,
@@ -82,6 +84,7 @@ export default function VehiculoScreen() {
     const [mantenimientos, setMantenimientos] = useState<MantenimientoData[]>([]);
     const [showReportModal, setShowReportModal] = useState(false);
     const [checklistCompleted, setChecklistCompleted] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
     const { showAlert } = useAlert();
 
     const [checklist, setChecklist] = useState<ChecklistItem[]>([
@@ -97,16 +100,17 @@ export default function VehiculoScreen() {
         cargarDatos();
     }, []);
 
-    const cargarDatos = async () => {
+    const cargarDatos = async (showLoading = true) => {
         try {
-            setLoading(true);
+            if (showLoading) setLoading(true);
+            else setRefreshing(true);
             // 1. Obtener ruta activa para saber el vehículo
             const rutasRes = await api.get('Ruta/me');
             const rutas = rutasRes.data;
 
-            // Buscar ruta pendiente, en progreso o completada recientemente (hoy)
+            // Buscar cualquier ruta que no esté cancelada para mostrar el vehículo
             const rutaActiva = rutas.find((r: any) =>
-                r.estado === 'PENDIENTE' || r.estado === 'EN_PROGRESO' || r.estado === 'EN_CAMINO' || r.estado === 'COMPLETADA'
+                ['PENDIENTE', 'PLANIFICADA', 'EN_PROGRESO', 'EN_CAMINO', 'EN_RUTA', 'EN_CURSO', 'COMPLETADA'].includes(r.estado?.toUpperCase())
             );
 
             if (rutaActiva && rutaActiva.vehiculoId) {
@@ -129,7 +133,12 @@ export default function VehiculoScreen() {
             showAlert('Error', 'No se pudo cargar la información del vehículo.', 'error');
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
+    };
+
+    const handleRefresh = () => {
+        cargarDatos(false);
     };
 
     const toggleCheckItem = (id: number) => {
@@ -160,7 +169,7 @@ export default function VehiculoScreen() {
             <View style={[styles.container, styles.center]}>
                 <Truck size={64} color={COLORS.textSecondary} />
                 <Text style={[styles.textSecondary, { marginTop: 16 }]}>No tienes un vehículo asignado hoy.</Text>
-                <TouchableOpacity style={styles.retryButton} onPress={cargarDatos}>
+                <TouchableOpacity style={styles.retryButton} onPress={() => cargarDatos()}>
                     <Text style={styles.retryText}>Reintentar</Text>
                 </TouchableOpacity>
             </View>
@@ -171,7 +180,18 @@ export default function VehiculoScreen() {
         <View style={styles.container}>
             <StatusBar barStyle="light-content" backgroundColor={COLORS.headerStart} />
 
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+            <ScrollView
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.scrollContent}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={refreshing}
+                        onRefresh={handleRefresh}
+                        tintColor={COLORS.accent}
+                        colors={[COLORS.accent]}
+                    />
+                }
+            >
 
                 {/* Header */}
                 <LinearGradient
@@ -179,6 +199,19 @@ export default function VehiculoScreen() {
                     style={styles.header}
                 >
                     <SafeAreaView edges={['top']}>
+                        <View style={styles.headerTopActions}>
+                            <TouchableOpacity
+                                style={styles.refreshIconDetail}
+                                onPress={handleRefresh}
+                                disabled={refreshing}
+                            >
+                                {refreshing ? (
+                                    <ActivityIndicator size="small" color="white" />
+                                ) : (
+                                    <RotateCw color="white" size={20} />
+                                )}
+                            </TouchableOpacity>
+                        </View>
                         <View style={styles.headerContent}>
                             <View style={styles.truckIconContainer}>
                                 <Truck color="white" size={40} />
@@ -392,7 +425,23 @@ const styles = StyleSheet.create({
     },
     headerContent: {
         alignItems: 'center',
-        paddingTop: 20,
+        paddingTop: 10,
+    },
+    headerTopActions: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        paddingHorizontal: 24,
+        paddingTop: 10,
+    },
+    refreshIconDetail: {
+        width: 38,
+        height: 38,
+        borderRadius: 12,
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.1)',
     },
     truckIconContainer: {
         width: 80,
