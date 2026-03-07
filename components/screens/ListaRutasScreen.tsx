@@ -24,6 +24,7 @@ import {
     View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { formatStatus } from '@/utils/formatters';
 
 const COLORS = {
     background: '#0a1628',
@@ -41,10 +42,10 @@ const COLORS = {
 
 const getEstadoConfig = (estado: string) => {
     switch (estado) {
-        case 'COMPLETADA': return { color: COLORS.success, label: 'Completada', icon: '✓', bg: 'rgba(34,197,94,0.15)' };
-        case 'EN_PROGRESO': return { color: COLORS.primary, label: 'En Progreso', icon: '●', bg: 'rgba(230,126,80,0.15)' };
-        case 'CANCELADA': return { color: COLORS.danger, label: 'Cancelada', icon: '✕', bg: 'rgba(239,68,68,0.15)' };
-        default: return { color: COLORS.warning, label: 'Pendiente', icon: '◎', bg: 'rgba(234,179,8,0.15)' };
+        case 'COMPLETADA': return { color: COLORS.success, label: formatStatus(estado), icon: '✓', bg: 'rgba(34,197,94,0.15)' };
+        case 'EN_PROGRESO': return { color: COLORS.primary, label: formatStatus(estado), icon: '●', bg: 'rgba(230,126,80,0.15)' };
+        case 'CANCELADA': return { color: COLORS.danger, label: formatStatus(estado), icon: '✕', bg: 'rgba(239,68,68,0.15)' };
+        default: return { color: COLORS.warning, label: formatStatus(estado), icon: '◎', bg: 'rgba(234,179,8,0.15)' };
     }
 };
 

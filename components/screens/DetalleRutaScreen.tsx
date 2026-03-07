@@ -9,6 +9,7 @@ import { ArrowLeft, ArrowRight, Calendar, CheckCircle2, MapPin, Navigation, Truc
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Linking, Modal, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { formatStatus } from '@/utils/formatters';
 import PodModal from '../modals/PodModal';
 import ScannerModal from '../modals/ScannerModal';
 
@@ -201,7 +202,7 @@ export default function DetalleRutaScreen() {
                     <Text style={styles.title}>Ruta #{ruta.id}</Text>
                     <View style={styles.statusChip}>
                         <View style={[styles.statusDot, { backgroundColor: ruta.estado === 'COMPLETADA' ? '#10B981' : '#E67E50' }]} />
-                        <Text style={styles.statusChipText}>{ruta.estado}</Text>
+                        <Text style={styles.statusChipText}>{formatStatus(ruta.estado)}</Text>
                     </View>
                 </View>
                 <TouchableOpacity style={styles.mapIconButton} onPress={openMap}>
@@ -287,7 +288,7 @@ export default function DetalleRutaScreen() {
                             <View style={[styles.deliveryStatusBadge,
                             entrega.estado === 'ENTREGADO' ? styles.statusSuccess :
                                 entrega.estado === 'CANCELADO' ? styles.statusError : styles.statusPending]}>
-                                <Text style={styles.deliveryStatusText}>{entrega.estado}</Text>
+                                <Text style={styles.deliveryStatusText}>{formatStatus(entrega.estado)}</Text>
                             </View>
                         </TouchableOpacity>
 

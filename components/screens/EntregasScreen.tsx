@@ -30,6 +30,7 @@ import {
 } from 'react-native';
 import Animated, { useAnimatedProps, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { formatStatus } from '@/utils/formatters';
 import Svg, { Circle, Defs, Path, Stop, LinearGradient as SvgGradient, Text as SvgText } from 'react-native-svg';
 // Componentes
 import IncidenciasModal from '../modals/IncidenciasModal';
@@ -385,7 +386,7 @@ export default function EntregasScreen() {
                                             <Text style={styles.clientName}>{entrega.cliente.nombreEmpresa}</Text>
                                             <View style={[styles.statusTag, { backgroundColor: getStatusColor(entrega.estado) + '20' }]}>
                                                 <Text style={[styles.statusText, { color: getStatusColor(entrega.estado) }]}>
-                                                    {entrega.estado}
+                                                    {formatStatus(entrega.estado)}
                                                 </Text>
                                             </View>
                                         </View>

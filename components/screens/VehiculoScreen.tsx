@@ -17,6 +17,7 @@ import {
     Truck,
     Wrench
 } from 'lucide-react-native';
+import { formatStatus } from '@/utils/formatters';
 import React, { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -103,9 +104,9 @@ export default function VehiculoScreen() {
             const rutasRes = await api.get('Ruta/me');
             const rutas = rutasRes.data;
 
-            // Buscar ruta pendiente o en progreso
+            // Buscar ruta pendiente, en progreso o completada recientemente (hoy)
             const rutaActiva = rutas.find((r: any) =>
-                r.estado === 'PENDIENTE' || r.estado === 'EN_PROGRESO' || r.estado === 'EN_CAMINO'
+                r.estado === 'PENDIENTE' || r.estado === 'EN_PROGRESO' || r.estado === 'EN_CAMINO' || r.estado === 'COMPLETADA'
             );
 
             if (rutaActiva && rutaActiva.vehiculoId) {
@@ -196,10 +197,10 @@ export default function VehiculoScreen() {
                                     `${COLORS.success}40` : `${COLORS.warning}40`
                             }]}>
                                 <Text style={[styles.statusText, {
-                                    color: vehiculo.estado === 'DISPONIBLE' || vehiculo.estado === 'EN_RUTA' ?
+                                    color: (vehiculo.estado === 'DISPONIBLE' || vehiculo.estado === 'EN_RUTA') ?
                                         COLORS.success : COLORS.warning
                                 }]}>
-                                    {vehiculo.estado === 'DISPONIBLE' || vehiculo.estado === 'EN_RUTA' ? '✓ Óptimo' : '⚠ Revisar'}
+                                    {(vehiculo.estado === 'DISPONIBLE' || vehiculo.estado === 'EN_RUTA') ? `✓ ${formatStatus(vehiculo.estado)}` : `⚠ ${formatStatus(vehiculo.estado)}`}
                                 </Text>
                             </View>
                         </View>
