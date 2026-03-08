@@ -7,7 +7,7 @@ import { storageAdapter } from './storageAdapter';
 
 // --- CONFIGURATION ---
 // If you are using ngrok, paste the URL here (e.g., 'https://xxxx.ngrok-free.app')
-const NGROK_URL: string = 'https://uncooperative-nonanachronously-fiona.ngrok-free.dev';
+const NGROK_URL: string = 'http://ac1bd7145f9ec47afb4863b9832a1355-811568931.us-east-1.elb.amazonaws.com';
 // ---------------------
 
 const getApiUrl = () => {
