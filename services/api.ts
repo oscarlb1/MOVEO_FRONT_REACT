@@ -34,7 +34,7 @@ const getApiUrl = () => {
     }
 
     // Fallback (Physical Android & iOS devices)
-    return 'http://172.17.21.174:5079/api';
+    return 'http://10.90.202.44:5079/api';
 };
 
 export const API_URL = getApiUrl();

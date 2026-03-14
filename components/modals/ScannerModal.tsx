@@ -49,10 +49,16 @@ export default function ScannerModal({ visible, onClose, entregaId, expectedQr, 
             const result = await entregaService.validarQrEntrega(entregaId, data);
             console.log("RESPUESTA DEL SERVIDOR:", result);
             if (result.success) {
-                showAlert('¡Éxito!', result.message || 'Paquete validado correctamente.', 'success', () => {
-                    onSuccess();
-                    onClose();
-                });
+                // Cerramos primero el modal del escáner
+                onClose();
+                
+                // Damos un breve respiro para que termine la animación de cierre
+                // antes de mostrar la alerta, que a su vez es otro Modal.
+                setTimeout(() => {
+                    showAlert('¡Éxito!', result.message || 'Paquete validado correctamente.', 'success', () => {
+                        onSuccess();
+                    });
+                }, 400);
             } else {
                 showAlert('Error', result.message || 'El código QR es incorrecto o no pertenece a esta entrega.', 'error', () => {
                     setScanned(false);
