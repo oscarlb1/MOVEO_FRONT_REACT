@@ -69,10 +69,15 @@ export default function LoginScreen() {
                     'Acceso restringido',
                     'Tu cuenta no tiene permisos para acceder a esta aplicación.\n\nContacta con un administrador para más información.'
                 );
+            } else if (error.response?.status === 401 || error.message?.includes('401')) {
+                showError(
+                    'Credenciales incorrectas',
+                    'El correo electrónico o la contraseña no son válidos. Por favor, verifícalos e inténtalo de nuevo.'
+                );
             } else {
                 showError(
                     'Error de acceso',
-                    error.message || 'Credenciales incorrectas. Por favor, verifica tu email y contraseña.'
+                    error.message || 'No se pudo conectar con el servidor. Por favor, verifica tu conexión.'
                 );
             }
         } finally {
